@@ -8,6 +8,7 @@ A personal BepInEx mod for **Bravely Default: Flying Fairy HD** (Steam, Unity 6 
 |---|---|
 | **MAtk Scaling** | Recalculates Magic Attack from equipment, support abilities, and job level, instead of the base game formula. |
 | **JP Up (Everyone)** | Every character earns a bonus to JP gained after battle, on top of anything the vanilla "JP Up" support ability already grants. Default **+20%**, and it stacks if a character has the real ability equipped too. |
+| **Gold Up** | Bonus to Gil earned after battle. Default **+20%**. |
 
 ## Requirements
 
@@ -46,9 +47,16 @@ Enabled = true
 
 ## Percentage of earned JP added as a bonus (e.g. 20 = +20%).
 BonusPercent = 20
+
+[GoldUp]
+## Grant a bonus to Gil earned after battle.
+Enabled = true
+
+## Percentage of earned Gil added as a bonus (e.g. 20 = +20%).
+BonusPercent = 20
 ```
 
-Set `Enabled = false` to turn the JP bonus off entirely, or change `BonusPercent` to any value — no rebuild required. Config changes are picked up on the next game launch.
+Set either `Enabled = false` to turn that bonus off entirely, or change its `BonusPercent` to any value — no rebuild required. Config changes are picked up on the next game launch.
 
 A copy of this default lives in [`config/com.voidfault.mod.cfg`](config/com.voidfault.mod.cfg) in this repo — copy it straight into `BepInEx\config\` if you want the file to exist before first launch, or to reset back to defaults later.
 

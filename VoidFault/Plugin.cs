@@ -14,6 +14,9 @@ public class Plugin : BasePlugin
     internal static ConfigEntry<bool> JPUpEnabled;
     internal static ConfigEntry<int> JPUpBonusPercent;
 
+    internal static ConfigEntry<bool> GoldUpEnabled;
+    internal static ConfigEntry<int> GoldUpBonusPercent;
+
     public override void Load()
     {
         Log = base.Log;
@@ -23,6 +26,11 @@ public class Plugin : BasePlugin
             "Grant every character a bonus to JP earned after battle, stacking with the vanilla JP Up ability.");
         JPUpBonusPercent = Config.Bind("JPUp", "BonusPercent", 20,
             "Percentage of earned JP added as a bonus (e.g. 20 = +20%).");
+
+        GoldUpEnabled = Config.Bind("GoldUp", "Enabled", true,
+            "Grant a bonus to Gil earned after battle.");
+        GoldUpBonusPercent = Config.Bind("GoldUp", "BonusPercent", 20,
+            "Percentage of earned Gil added as a bonus (e.g. 20 = +20%).");
 
         // Harmony will auto-discover all [HarmonyPatch] classes in this assembly
         var harmony = new Harmony(PluginInfo.GUID);
