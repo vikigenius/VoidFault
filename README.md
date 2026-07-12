@@ -33,11 +33,11 @@ cd VoidFault
 dotnet build
 ```
 
-The `.csproj` builds straight into `BepInEx\plugins\VoidFault\`. Edit `<GameDir>` in `VoidFault.csproj` if your Steam library isn't at the default path.
+Edit `<GameDir>` in `VoidFault.csproj` if your Steam library isn't at the default path. On every build, an MSBuild target automatically copies `VoidFault.dll` (+ PDB) from the normal `bin\Debug\net6.0\` output into `BepInEx\plugins\VoidFault\` — no manual copying needed.
 
 ## Configuration
 
-Settings are written to `BepInEx\config\com.voidfault.mod.cfg` after the first run:
+Settings are written to `BepInEx\config\com.voidfault.mod.cfg` the first time the mod loads:
 
 ```ini
 [JPUp]
@@ -49,6 +49,8 @@ BonusPercent = 20
 ```
 
 Set `Enabled = false` to turn the JP bonus off entirely, or change `BonusPercent` to any value — no rebuild required. Config changes are picked up on the next game launch.
+
+A copy of this default lives in [`config/com.voidfault.mod.cfg`](config/com.voidfault.mod.cfg) in this repo — copy it straight into `BepInEx\config\` if you want the file to exist before first launch, or to reset back to defaults later.
 
 ## Uninstalling
 
