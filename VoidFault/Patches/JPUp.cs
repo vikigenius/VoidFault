@@ -10,8 +10,6 @@ namespace VoidFault.Patches;
 [HarmonyPatch(typeof(BtlResultCtrl), nameof(BtlResultCtrl.ReviseAddJEXP))]
 public static class JPUp
 {
-    private static int _callCount;
-
     [HarmonyPrefix]
     public static void Prefix(int jexp, ref int bonusjexp)
     {
@@ -20,7 +18,7 @@ public static class JPUp
         int before = bonusjexp;
         bonusjexp += jexp * Plugin.JPUpBonusPercent.Value / 100;
 
-        if (_callCount++ < 5)
+        if (Plugin.DebugLogging.Value)
             Plugin.Log.LogInfo($"[JPUp] jexp={jexp} bonusjexp {before} -> {bonusjexp}");
     }
 }

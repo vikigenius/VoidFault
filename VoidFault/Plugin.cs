@@ -17,6 +17,8 @@ public class Plugin : BasePlugin
     internal static ConfigEntry<bool> GoldUpEnabled;
     internal static ConfigEntry<int> GoldUpBonusPercent;
 
+    internal static ConfigEntry<bool> DebugLogging;
+
     public override void Load()
     {
         Log = base.Log;
@@ -31,6 +33,10 @@ public class Plugin : BasePlugin
             "Grant a bonus to Gil earned after battle.");
         GoldUpBonusPercent = Config.Bind("GoldUp", "BonusPercent", 20,
             "Percentage of earned Gil added as a bonus (e.g. 20 = +20%).");
+
+        DebugLogging = Config.Bind("Debug", "Enabled", false,
+            "Log per-call details for JP Up / Gold Up / MAtk Scaling patches. Off by default. " +
+            "Note: MAtk Scaling logs on every GetMATK call, which fires constantly outside battle too (menus, tooltips) — expect a lot of log lines while this is on.");
 
         // Harmony will auto-discover all [HarmonyPatch] classes in this assembly
         var harmony = new Harmony(PluginInfo.GUID);

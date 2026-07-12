@@ -54,9 +54,17 @@ Enabled = true
 
 ## Percentage of earned Gil added as a bonus (e.g. 20 = +20%).
 BonusPercent = 20
+
+[Debug]
+## Log per-call details for JP Up / Gold Up / MAtk Scaling patches. Off by default.
+## Note: MAtk Scaling logs on every GetMATK call, which fires constantly outside battle
+## too (menus, tooltips) — expect a lot of log lines while this is on.
+Enabled = false
 ```
 
-Set either `Enabled = false` to turn that bonus off entirely, or change its `BonusPercent` to any value — no rebuild required. Config changes are picked up on the next game launch.
+Set either feature's `Enabled = false` to turn that bonus off entirely, or change its `BonusPercent` to any value — no rebuild required. Config changes are picked up on the next game launch.
+
+Set `[Debug] Enabled = true` to log what each patch is actually doing to `BepInEx\LogOutput.log` (useful for confirming a patch fires or checking the numbers look right) — leave it off otherwise, especially since MAtk Scaling's hook fires very frequently outside battle too.
 
 A copy of this default lives in [`config/com.voidfault.mod.cfg`](config/com.voidfault.mod.cfg) in this repo — copy it straight into `BepInEx\config\` if you want the file to exist before first launch, or to reset back to defaults later.
 

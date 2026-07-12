@@ -12,8 +12,6 @@ namespace VoidFault.Patches;
 [HarmonyPatch(typeof(CharacterState), nameof(CharacterState.GetMATK))]
 public static class MAtkScaling
 {
-    private static int _callCount;
-
     [HarmonyPrefix]
     public static bool Prefix(CharacterState __instance, bool ignoreManjuu, ref int __result)
     {
@@ -79,7 +77,7 @@ public static class MAtkScaling
 
         __result = Math.Clamp(mAtk, 0, 999);
 
-        if (_callCount++ < 5)
+        if (Plugin.DebugLogging.Value)
             Plugin.Log.LogInfo($"[MAtkScaling] GetMATK -> {__result}");
 
         return false;
