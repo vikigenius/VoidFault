@@ -1,0 +1,47 @@
+# Modding notes / tricks
+
+Working notes from building VoidFault, kept around so the next patch doesn't require re-deriving these from scratch.
+
+## IL2CppDumper vs. a real decompiler (dnSpyEx, etc.)
+
+BDFFHD is IL2CPP: the game's own logic is AOT-compiled to native x64 inside `GameAssembly.dll`, not IL. There is no managed bytecode to decompile back into C#.
+
+- **IL2CppDumper** reads `global-metadata.dat` and cross-references it against `GameAssembly.dll` to produce `dump.cs` (type/field/method **signatures** with RVA/offset comments, empty bodies), a `DummyDll` folder (compilable stubs, no logic), and `script.json` (a labeling feed for IDA/Ghidra — `ScriptMethod`/`ScriptString`/`ScriptMetadata`/`Addresses`). It is a **symbol mapper**, not a decompiler — you get names and signatures, never bodies.
+- **dnSpyEx** decompiles real managed .NET assemblies (IL → C#). It's the right tool for BepInEx's own core DLLs, Harmony, Il2CppInterop-generated interop assemblies, or other people's compiled mods (this is how the original MAtk proficiency mod's logic was recovered — it was a normal managed Harmony mod DLL). Pointed at `GameAssembly.dll` itself it has nothing to decompile.
+- To actually read a native method's real logic, the correct tool is **Ghidra or IDA**, loading `GameAssembly.dll` and importing `script.json` for names/types from `il2cpp.h`. This gives noisy but readable pseudo-C.
+- **When it's worth it:** not for a single hook. Il2CppDumper's naming (see below) plus testing the patch in-game is the standard IL2CPP modding loop. Reach for Ghidra when blind trial-and-error is expensive or ambiguous — e.g. a full formula rewrite, or a hook that silently no-ops and you can't tell why.
+
+## Finding the right method to hook without seeing its body
+
+Since bodies aren't visible, hooks are found by signature/name pattern-matching in `dump.cs`, then verified empirically in-game:
+
+- Look for **naming symmetry**. `BtlResultCtrl.ReviseAddJEXP(int jexp, int bonusjexp)` was found by first spotting its sibling `ReviseAddEXP(int exp, int bonusexp)` — the JP-award funnel and the character-EXP funnel share an obvious naming convention (`JEXP` = job EXP = JP throughout this class: `m_addJEXP`, `AddAllRemainJEXP`, `CountupCharaJExp`, `MAX_BONUS_JEXP`).
+- Cross-check field/ability IDs against the **already-dumped data tables** in `BDFFHD-Modding/tools/dump/Common_en/Paramater/*.json` (e.g. `SupportAbility.json`) rather than guessing — e.g. confirmed "JP Up" is `ABILITY_ID 1104` with no percentage field in its ~90-field record, proving its bonus % is hardcoded natively rather than data-driven.
+- `dump.cs` fields marked `private` (e.g. `JobState.m_JobParam`, `CharacterState.m_JobStateArray`) are often still directly accessible from the generated **interop** assembly. Il2CppInterop's interop-generation step exposes IL2CPP instance fields as public in the interop DLL regardless of the original C# accessibility — the `private` in `dump.cs` just mirrors the original source signature for readability, it isn't enforced in what you actually compile against.
+  - This is also why a classic Mono-era **assembly publicizer** (Cecil/AsmResolver, flipping `IsPublic` on every member) is irrelevant here: it operates on a real managed assembly, and the IL2CPP interop DLL is already "pre-publicized" by construction. That tool only earns its keep on a Mono/BepInEx5 game where you reference the actual `Assembly-CSharp.dll` directly.
+
+## Harmony trick: writing back a non-ref parameter
+
+A prefix can mutate an argument the original method didn't declare as `ref`/`out`, just by adding `ref` to that parameter in the **patch's** signature (matched by name) — Harmony patches the original method's IL directly, so this works even though the target's own signature is by-value:
+
+```csharp
+[HarmonyPatch(typeof(BtlResultCtrl), nameof(BtlResultCtrl.ReviseAddJEXP))]
+public static class JPUp
+{
+    [HarmonyPrefix]
+    public static void Prefix(int jexp, ref int bonusjexp)
+    {
+        bonusjexp += jexp * Plugin.JPUpBonusPercent.Value / 100;
+    }
+}
+```
+
+## BepInEx IL2CPP project setup
+
+- `BasePlugin.Config` (in `BepInEx.Unity.IL2CPP`) is a real `ConfigFile`, same `Bind<T>(section, key, default, description)` API as Mono BepInEx. Settings land in `BepInEx\config\<GUID>.cfg`. No confirmed live file-watch/hot-reload in the docs — assume config changes need a relaunch unless using an in-game config manager overlay.
+- `TargetFramework` should stay `net6.0` to match what BepInEx 6 IL2CPP actually hosts (its core assemblies — `BepInEx.Core`, `BepInEx.Unity.IL2CPP`, Harmony, Il2CppInterop — are built for net6.0). This is independent of which SDK is installed locally: a newer SDK (e.g. .NET 10) can still target `net6.0` for the project — multi-targeting is normal, and it avoids compiling clean against newer BCL APIs that would throw at runtime under the older hosted CoreCLR.
+- Reference the **interop** assemblies (`BepInEx\interop\*.dll`, generated by BepInEx on first game launch), never a copy of the game's own `Assembly-CSharp.dll` — there isn't a normal one to reference for an IL2CPP game.
+
+## Design choice: merge, don't reference
+
+The original MAtk proficiency mod was pulled in as ported code (`Patches/MAtkScaling.cs`) under VoidFault's own `[BepInPlugin]`, rather than kept as a `matk_ref/` folder with its own `Plugin`/`PluginInfo`/GUID. Two `[BepInPlugin]`-tagged classes in one assembly would register as two separate plugins, each spinning up its own `Harmony` instance — pointless when the goal is one mod, one install.
