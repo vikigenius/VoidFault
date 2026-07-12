@@ -11,14 +11,25 @@ namespace VoidFault.Patches;
 [HarmonyPatch(typeof(BtlSequenceCtrl), nameof(BtlSequenceCtrl.CreateResultData))]
 public static class GoldUp
 {
+    private static int _callCount;
+
     [HarmonyPostfix]
     public static void Postfix(BtlSequenceCtrl __instance)
     {
         if (!Plugin.GoldUpEnabled.Value) return;
 
         ResultData result = __instance.GetResultData();
-        if (result == null) return;
+        if (result == null)
+        {
+            if (_callCount++ < 5)
+                Plugin.Log.LogInfo("[GoldUp] CreateResultData fired but GetResultData() was null.");
+            return;
+        }
 
+        int before = result.gil;
         result.gil += result.gil * Plugin.GoldUpBonusPercent.Value / 100;
+
+        if (_callCount++ < 5)
+            Plugin.Log.LogInfo($"[GoldUp] gil {before} -> {result.gil}");
     }
 }
