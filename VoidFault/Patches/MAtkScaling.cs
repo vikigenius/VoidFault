@@ -39,20 +39,17 @@ public static class MAtkScaling
             mAtk += itemMatk;
         }
 
-        bool pAbilink = false;
-        if (__instance.IsEnableSupportAbility(1007, ref pAbilink))
+        bool pAbilink;
+        if (__instance.IsEnableSupportAbility(1007, out pAbilink))
             mAtk = mAtk * 110 / 100;
 
-        pAbilink = false;
-        if (__instance.IsEnableSupportAbility(1146, ref pAbilink))
+        if (__instance.IsEnableSupportAbility(1146, out pAbilink))
             mAtk = mAtk * 120 / 100;
 
-        pAbilink = false;
-        if (__instance.IsEnableSupportAbility(1012, ref pAbilink))
+        if (__instance.IsEnableSupportAbility(1012, out pAbilink))
             mAtk = mAtk * 130 / 100;
 
-        pAbilink = false;
-        if (__instance.IsEnableSupportAbility(1108, ref pAbilink) && !pAbilink)
+        if (__instance.IsEnableSupportAbility(1108, out pAbilink) && !pAbilink)
         {
             Il2CppReferenceArray<JobState> jobArr = __instance.m_JobStateArray;
             if (jobArr == null)
