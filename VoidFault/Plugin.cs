@@ -17,6 +17,8 @@ public class Plugin : BasePlugin
     internal static ConfigEntry<bool> GoldUpEnabled;
     internal static ConfigEntry<int> GoldUpBonusPercent;
 
+    internal static ConfigEntry<bool> PassengerTestEnabled;
+
     internal static ConfigEntry<bool> DebugLogging;
 
     public override void Load()
@@ -33,6 +35,11 @@ public class Plugin : BasePlugin
             "Grant a bonus to Gil earned after battle.");
         GoldUpBonusPercent = Config.Bind("GoldUp", "BonusPercent", 20,
             "Percentage of earned Gil added as a bonus (e.g. 20 = +20%).");
+
+        PassengerTestEnabled = Config.Bind("PassengerTest", "Enabled", true,
+            "TEMPORARY verification hook: calls PassengerManager.IncomingCOM() once every time a TownFunction " +
+            "is constructed (i.e. entering a town), to test whether it actually places a recruitable Passing Soul. " +
+            "Not the final design -- see LEARNINGS.md.");
 
         DebugLogging = Config.Bind("Debug", "Enabled", false,
             "Log per-call details for JP Up / Gold Up / MAtk Scaling patches. Off by default. " +
