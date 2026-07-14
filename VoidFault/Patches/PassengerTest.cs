@@ -43,7 +43,13 @@ public static class PassengerTest
             int after = PassengerManager.GetCount();
 
             if (Plugin.DebugLogging.Value)
-                Plugin.Log.LogInfo($"[PassengerTest] TownFunction.DeleteThis() fired -> IncomingCOM() called. GetCount() {before} -> {after}");
+                Plugin.Log.LogInfo(
+                    $"[PassengerTest] TownFunction.DeleteThis() fired -> IncomingCOM() called. " +
+                    $"GetCount() {before} -> {after} | " +
+                    $"IsOnline={PassengerManager.IsOnline} " +
+                    $"IsBusy={PassengerManager.IsBusy} " +
+                    $"IsNegotiation={PassengerManager.IsNegotiation} " +
+                    $"IsReadyFriendAndGuset={PassengerManager.IsReadyFriendAndGuset}");
         }
         catch (Exception ex)
         {
