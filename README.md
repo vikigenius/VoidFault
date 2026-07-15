@@ -71,3 +71,9 @@ A copy of this default lives in [`config/com.voidfault.mod.cfg`](config/com.void
 ## Uninstalling
 
 Delete `BepInEx\plugins\VoidFault\` and, if you want to remove the settings too, `BepInEx\config\com.voidfault.mod.cfg`.
+
+## Developer docs
+
+- [`LEARNINGS.md`](LEARNINGS.md) — modding tricks/gotchas picked up while building this (IL2CppDumper vs. decompilers, Harmony/IL2CPP quirks, project setup rationale).
+- [`RESEARCH_NOTES.md`](RESEARCH_NOTES.md) — investigation log for the Norende Colony/Passing Soul population system: what's confirmed, what we tried, where it's stuck.
+- [`GHIDRA_SETUP.md`](GHIDRA_SETUP.md) — step-by-step Ghidra setup for reading `GameAssembly.dll`'s actual decompiled logic, for when signature-only guessing (`dump.cs`) isn't enough.
