@@ -10,9 +10,11 @@ this repo.
 """
 import json
 
+from ghidra.program.model.symbol import SourceType
+
 SCRIPT_JSON = r"/Users/vikash.balasubramani/Projects/BDFFHD/BDFFHD-dump/script.json"
 
-USER_DEFINED = ghidra.program.model.symbol.SourceType.USER_DEFINED
+USER_DEFINED = SourceType.USER_DEFINED
 baseAddress = currentProgram.getImageBase()
 
 
