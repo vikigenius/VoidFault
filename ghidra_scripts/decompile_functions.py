@@ -1,4 +1,4 @@
-# @runtime Jython
+# @runtime PyGhidra
 # -*- coding: utf-8 -*-
 """
 Ghidra script: decompiles a fixed list of functions (by their imported

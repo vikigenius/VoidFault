@@ -1,4 +1,4 @@
-# @runtime Jython
+# @runtime PyGhidra
 # -*- coding: utf-8 -*-
 """
 Ghidra script: labels functions/strings/metadata in GameAssembly.dll using
