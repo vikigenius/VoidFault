@@ -27,3 +27,9 @@ See `RESEARCH_NOTES.md` for why we ended up needing this (multiple signature-onl
 - Save the Ghidra project (it auto-saves as a `.gpr`); keep the project directory around so you never redo the multi-hour analysis pass for the same binary.
 - If a function doesn't turn up by name search (label import can occasionally miss a symbol), fall back to the RVA in the matching `dump.cs` comment (e.g. `// RVA: 0x740FB0`) — after import, cross-reference addresses directly via Go To.
 - Cross-references (**right-click a function → Show References To**) are how you find every caller of something like `PassengerManager.IncomingCOM()` — useful for figuring out what's actually supposed to invoke it, and from where.
+
+## Ghidra 12.x: "Ghidra was not started with PyGhidra. Python is not available"
+
+Ghidra 11.3+ replaced Jython with PyGhidra (real CPython 3) as the *default* Python engine, but Jython is still bundled — running a classic Jython-style script (like the two in `ghidra_scripts/`) without saying so gets routed to PyGhidra instead, which then fails with this exact error if Ghidra wasn't launched with a Python interpreter bridged in.
+
+Fix: add `# @runtime Jython` as the literal first line of the script file (before even the encoding comment). Both scripts in this repo already have it. Confirmed against the same fix in [Il2CppDumper issue #897](https://github.com/Perfare/Il2CppDumper/issues/897) and [Ghidra issue #8555](https://github.com/NationalSecurityAgency/ghidra/issues/8555) — this is a known, common gotcha for any pre-12.x Ghidra script on newer installs, not specific to these two files.
