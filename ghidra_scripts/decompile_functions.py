@@ -21,7 +21,7 @@ FUNCTION_NAMES = [
     "TownFunction$$DeleteThis",
 ]
 
-OUTPUT_PATH = r"/Users/vikash.balasubramani/Projects/BDFFHD/VoidFault/ghidra_scripts/decompiled_output.txt"
+OUTPUT_PATH = r"C:\Users\maste\Documents\Modding\BDFFHD\BDFFHD-dump\decompiled_output.txt"
 
 ifc = DecompInterface()
 ifc.openProgram(currentProgram)
