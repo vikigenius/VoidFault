@@ -127,11 +127,15 @@ have to come from Ghidra. The decompile turned two prior guesses into facts:
     non-current town's `COMS` stack, walks the master `List<FriendState>` at
     `Hikari+0xa0`, and for each `IsGuestPlayerType()` guest pushes it onto a
     *random* enabled town's `COMS[town]` stack (town pool from
-    `GenComTowns()`). It then writes the pushed count into `LEFT_COMS`.
-    So **`GetCount()` == `LEFT_COMS` == guests-distributed-to-town-stacks** —
-    not friend-summon count (theory #8 was wrong) and not content generation.
-    With a near-empty guest pool offline it distributes ~nothing, which is why
-    the counter barely moved. This confirms IncomingCOM was never the lever.
+    `GenComTowns()`). It then writes the pushed count into `LEFT_COMS` (the
+    global COM counter). **CORRECTION (round 2):** an earlier draft claimed
+    `GetCount() == LEFT_COMS` — that is **wrong**. `GetCount()` returns the
+    *current town's* `min(TOWN_PS_LEFT[town], pool)`, or `0` when the current
+    location isn't an enabled town; `LEFT_COMS` is a separate global counter
+    that only `Doit` decrements. See the round-2 section. Regardless, this is
+    not a friend-summon count (theory #8 was wrong) and not content generation;
+    offline, with a near-empty guest pool, IncomingCOM distributes ~nothing.
+    IncomingCOM was never the lever.
   - `Doit()` = **the atomic produce-one-passenger op** (the lever we wanted).
     Two branches, both keyed on current town index and both decrementing
     `TOWN_PS_LEFT[town]`:
@@ -177,44 +181,104 @@ the player is — no need to enumerate towns, and blanket-seeding gated towns is
 pointless (they're excluded from distribution/display). "Works in every town"
 = yes, via current-town targeting.
 
+## Round 2 decompile (2026-07-16) — full pipeline resolved
+
+Decompiled the orchestrator + display side (11 more functions). The mechanism
+is now end-to-end understood; **no signature-guessing left.**
+
+- **`GetCount()` is the real orchestrator, not a getter** (this changes
+  everything). Each call:
+  1. Calls `NEXT_SET(now, force=false)` — the cadence gate
+     (`TIME_CHECK_IMPL` on `PassengerControl.NEXT_SET` @0x20 vs
+     `c_setPassengerSpan` @0x30).
+  2. **If the cadence period elapsed** → it *regenerates the batch*:
+     resets `TOWN_PS_LEFT[town] = 2` for **every** `GenComTowns()` (story-
+     enabled) town, gives one random town a +1 bonus when the enabled-town
+     count is 2–4, re-pushes all `IsGuestPlayerType` guests (from
+     `Hikari+0xa0`) into per-town `COMS` stacks, writes `LEFT_COMS`, then arms
+     the next deadline via `NEXT_SET(now, force=true)`.
+  3. Either way it then returns, for the **current** town,
+     `min(TOWN_PS_LEFT[town], COMS[town].Count or m_incomings[town].Count)`
+     and sets `bCOMS_MODE` (offline=1 / online=0) accordingly.
+  So **`GetCount()`'s return value == the number of passing souls to show in
+  this town this visit**, and `TOWN_PS_LEFT` (reset to **2**, occasionally 3,
+  every `c_setPassengerSpan`) is the per-town, per-period recruit budget.
+- **The recruit → population link is confirmed and atomic.**
+  `MB_FieldUI.PassingEachOther(npc)` (player crosses a soul) spawns an
+  `MB_PassingEachOther` whose completion callback is
+  `MB_FieldUI.OnPassingEachOther()`, which:
+  `Doit()` → if it returns a `FriendState` (i.e. budget+pool allowed) →
+  **`ColonyShare.DataAccessor.AddReinforcer(1)`** (this is the runtime twin of
+  the story-script `AMX_AddColonyReinforcer` from the notes — **+1 colony
+  population per recruited soul**) + achievement flag `0x1e`. If `Doit()`
+  returns 0 (budget exhausted / empty pool), nothing happens — pure visual.
+  **This resolves the original question**: villagers appear at the cadence of
+  `TOWN_PS_LEFT` (2/period/town), each pass = +1 population.
+- **`MB_PassThroughNPC` is only the wandering ghost visual** (model/motion via
+  `AddressableBag`, alpha fade). `Gen`/`GetReady` spawn a visual and do **not**
+  call `Doit`; `CheckOverlap` just despawns ghosts that get too close to a
+  `TownPlayerCtrl` unit. The recruit logic is entirely in `OnPassingEachOther`.
+- **Offline pool = your existing guests, not synthetic dummies.** The
+  `COMS`-fill in `GetCount`/`Loaded` draws from the live guest list at
+  `Hikari+0xa0`; there is **no dummy-passenger generator** offline (confirms the
+  `DummyPassengers*` name was a misremember — no such symbol). So offline, souls
+  are re-showings of guests you already have, capped by `TOWN_PS_LEFT`.
+- **Persistence** (`PassengerControl.WriteRead`): serializes `LEFT_COMS`,
+  `NEXT_UPLOAD`, `NEXT_SET`, and the `TOWN_PS_LEFT` array. **`COMS` is NOT
+  serialized** — it's rebuilt from the guest list on `Loaded()`.
+- `UpdateService()` is the *online/network* service tick (upload/download/
+  friend-list/leaderboard cadence via `ServerIO`), plus the offline flip
+  (`bUseNet`/`bToBeNoNet`). It is **not** the town-passenger spawner — that's
+  `GetCount`. Relevant offline only for setting the mode flags.
+
+- **Reinterpreting the old `0 -> 0` / `0 -> 1` experiment** (items #5–#8): those
+  `GetCount()` readings were *our own* injected calls inside the
+  `TownFunction.DeleteThis` hook. They fire on scene teardown (which happens on
+  **both** the enter and leave transitions — that's the "twice per visit"), and
+  say **nothing** about when the *game* calls `GetCount` (still unknown).
+  `GetCount` is also **mutating** (can trigger the regen, redistributes guests,
+  sets `bCOMS_MODE` and the `+0x48` flag), and we sandwiched it around a
+  mutating `IncomingCOM()` — so the numbers were never a clean read. They now
+  reconcile with the decompile:
+  - **Enter (`0 -> 0`):** at that teardown the current-location id isn't the new
+    town yet (world map / mid-transition) → `GetCount`'s `FindIndex` misses →
+    returns 0 regardless.
+  - **Leave (`0 -> 1`):** the location id still resolves to the town being torn
+    down; `IncomingCOM` shuffles the lone guest into that town's `COMS`, so the
+    post-read is `min(TOWN_PS_LEFT[town], 1) = 1`.
+  So the `1` is **not** a World-Map value and **not** a summon count — it's "1
+  recruitable soul now queued in the town you're leaving." On the World Map
+  proper, `GetCount()` returns **0** (the map isn't an enabled town). The
+  experiment *supports* the model rather than contradicting it.
+
+### Recommended patch — increase passing-soul rate (configurable)
+The clean lever is now unambiguous: **`PassengerManager.GetCount()`**.
+- Harmony **postfix on `GetCount()`**: multiply/override the return value
+  (souls shown this visit) by a config factor, AND write the same inflated
+  value into `TOWN_PS_LEFT[currentTown]` (the recruit budget `Doit` checks) so
+  the extra souls are actually *recruitable*, not just visual.
+- Because `Doit` (offline) pops from `COMS[currentTown]`, also top that stack
+  up to the target count (push duplicates of the existing guest `FriendState`s)
+  — otherwise `min(budget, poolCount)` re-clamps and the pool is the cap.
+- Static public method on `PassengerManager`; static-method Harmony hooks work
+  here (only `.ctor` hooks failed — see item #3/#4 of the earlier log). No need
+  to know `GetCount`'s caller to hook it.
+- Simpler, lower-fidelity alternatives if the above proves fiddly: shrink
+  `c_setPassengerSpan` (faster budget refresh, but may not re-tick within one
+  visit), or the blunt fallback — directly `ColonyShare.AddReinforcer` /
+  `ColonyData.population++`.
+
 ## Open questions / where we left off
 
-The data model is now fully understood; the remaining gap is the
-**orchestrator**, and `dump.cs` can't close it (symbols only — re-run the
-Ghidra decompile with an expanded `FUNCTION_NAMES` to get these bodies):
+Mechanism is fully resolved; only minor confirmations remain, none blocking:
 
-- **Who calls `Doit()`, and on what trigger/cadence?** This is what actually
-  makes a soul appear in-town and hands the `FriendState` to `MB_FieldUI`.
-  Likely `UpdateService()` (the tick loop running the `NEXT_SET` cadence)
-  and/or a town/field-UI passenger controller. Decompile `UpdateService`,
-  `NEXT_SET`, `GetCount`, and find `Doit`'s caller (look on the `MB_FieldUI` /
-  town-passenger side).
-- **Where does `TOWN_PS_LEFT[town]` get its budget set/replenished?** Only its
-  *decrement* (in `Doit`) has been seen. This per-town budget is the most
-  direct "how many souls per town" quantity lever — need the writer/initializer
-  and its default value.
-- **How does `COMS[town]` get seeded offline?** IncomingCOM only redistributes
-  the existing `Hikari+0xa0` guest pool; the offline dummy source is a separate,
-  not-yet-read step. NOTE: the earlier note about `DummyPassengersTable`/
-  `DummyPassengersJob` is **unverified** — grep finds no `DummyPassenger*`
-  symbol anywhere in this dump, so that name was likely misremembered. Find the
-  real source when decompiling `UpdateService`/`Loaded`.
-
-### Candidate levers for the "increase passing-soul rate" patch
-Ranked, given what's confirmed vs still-guessed:
-1. **Cadence span** (`c_setPassengerSpan` / `next_set`): global, town-agnostic,
-   trivial to shrink — but only speeds *timing*; useless if the pool/budget is
-   the real offline bottleneck (it is). Not sufficient alone offline.
-2. **Per-town budget + seed** (write `TOWN_PS_LEFT[currentTown]`, seed
-   `COMS[currentTown]` from DummyPassengers, set `bCOMS_MODE`, drive `Doit`):
-   most direct "make N souls appear," but re-implements the orchestrator and
-   still needs the confirmed display path (`Doit` → `MB_FieldUI` add-passenger).
-   Do **not** ship this on signature guessing — that's how the last two dead
-   ends happened. Decompile the orchestrator first, then hook it with a
-   configurable multiplier.
-- Simpler fallback still on the table, fully understood: directly increment
-  `ColonyData.population`. Less immersive (no ghost/recruit flow) but a plain
-  field we control.
+- **Who calls `GetCount()` / `MB_PassThroughNPC.GetReady()`** (the town-enter
+  spawn point, i.e. how many ghosts get spawned from `GetCount`'s return). Not
+  needed to build the patch (we hook `GetCount` directly), but confirming it
+  would tell us whether inflating `GetCount` alone also increases the *visual*
+  ghost count or just the recruit budget.
+- Empirically confirm the `GetCount` postfix + `COMS` top-up actually yields
+  extra `AddReinforcer` calls in-town (drive it, watch population).
 
 ## (superseded) earlier open questions
 
