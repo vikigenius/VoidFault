@@ -252,33 +252,84 @@ is now end-to-end understood; **no signature-guessing left.**
   experiment *supports* the model rather than contradicting it.
 
 ### Recommended patch — increase passing-soul rate (configurable)
-The clean lever is now unambiguous: **`PassengerManager.GetCount()`**.
-- Harmony **postfix on `GetCount()`**: multiply/override the return value
-  (souls shown this visit) by a config factor, AND write the same inflated
-  value into `TOWN_PS_LEFT[currentTown]` (the recruit budget `Doit` checks) so
-  the extra souls are actually *recruitable*, not just visual.
-- Because `Doit` (offline) pops from `COMS[currentTown]`, also top that stack
-  up to the target count (push duplicates of the existing guest `FriendState`s)
-  — otherwise `min(budget, poolCount)` re-clamps and the pool is the cap.
-- Static public method on `PassengerManager`; static-method Harmony hooks work
-  here (only `.ctor` hooks failed — see item #3/#4 of the earlier log). No need
-  to know `GetCount`'s caller to hook it.
-- Simpler, lower-fidelity alternatives if the above proves fiddly: shrink
-  `c_setPassengerSpan` (faster budget refresh, but may not re-tick within one
-  visit), or the blunt fallback — directly `ColonyShare.AddReinforcer` /
-  `ColonyData.population++`.
+The clean lever is confirmed (round 3): **`PassengerManager.GetCount()`**,
+called once per town-load in `TownFunction.UpdatePhase` case 10, where its
+return `N` is the loop count for `GetReady()` — i.e. **`N` = number of ghosts
+spawned this visit**, each recruitable via `PassingEachOther → Doit →
+AddReinforcer(1)`.
+- Harmony **postfix on `GetCount()`**: override `__result` to the target `N`
+  (absolute config value recommended over a multiplier — see "zero" analysis
+  below), AND write that same `N` into `TOWN_PS_LEFT[currentTown]` (the recruit
+  budget `Doit` checks) so the extra ghosts are actually *recruitable*, not
+  just visual.
+- Because `Doit` offline (`bCOMS_MODE`) pops from `COMS[currentTown]`, also
+  ensure that stack holds ≥ `N` `FriendState`s (push duplicates of existing
+  guests) — else `min(budget, poolCount)` re-clamps and the pool is the cap.
+  Implement as "ensure count == N", **not** "push N more" (or the stack grows
+  unbounded across visits). `TOWN_PS_LEFT` as an absolute *set* is self-clamping
+  (no accumulation); an additive approach would runaway even without recruiting.
+- **Runs once per town-entry (phase 10 is one-shot)** → the postfix fires
+  exactly once per visit. Refresh is therefore **per-visit / farmable** by
+  leaving and re-entering (each visit re-sets budget to `N`). That's Option A;
+  acceptable and simple. Vanilla's own refresh is `c_setPassengerSpan` = **3
+  real days**, so we are effectively replacing a 3-day cadence with per-visit.
+- **Inherited gate (can't be bypassed from `GetCount`):** the spawn block, and
+  thus the `GetCount` call, only runs when `bVar3 & bVar4`:
+  - `bVar3` = **story-progress gate**: `GameData.m_ProgressId` (@0xcc) in
+    `0x14..0x25` (20–37) **or** `>= 0x2e` (46+). So off before progress ~20 and
+    in a mid gap (38–45), on otherwise.
+  - `bVar4` = **Event-Viewer gate** (NOT network — earlier mislabel): for normal
+    maps `bVar4 = !SceneInfo.m_bIsEventViewer` (@0x50) — souls spawn only in
+    real gameplay, not Event-Viewer cutscene/story replays. For 3 specially-
+    named maps (name-substring checks; the exact strings couldn't be resolved —
+    the `StringLiteral_N` label numbering in this import doesn't line up with
+    `stringliteral.json`'s positional index) it uses `bVar3` instead.
+  So the patch amplifies souls **where the game already spawns them**; it won't
+  force souls before/around the story gap or during Event-Viewer replays. In
+  normal play the Event-Viewer half is a non-issue; the story-progress window
+  is the real constraint.
+  - **The 3 special maps don't matter to us — no need to resolve their names.**
+    In normal play (`!isEventViewer`) both branches reduce to the same gate
+    (`bVar3`): normal map → `bVar3 & true`, special map → `bVar3 & bVar3`. The
+    special-casing only changes behavior *inside* the Event Viewer (special maps
+    still spawn there), which we don't care about. Effective gate for the patch
+    is simply `m_ProgressId in 0x14..0x25 or >= 0x2e`.
+  Also requires the `MB_PassThroughNPC` prefab list to be non-empty (normal in
+  a town). Defeating the gate would need hooking `UpdatePhase` case 10 itself —
+  far more invasive, not recommended.
+- Static public method; static-method Harmony hooks work here (only `.ctor`
+  hooks failed — items #3/#4).
+- Blunt fallback if ever needed: `ColonyShare.AddReinforcer` /
+  `ColonyData.population++` directly (no ghost/recruit flow).
 
-## Open questions / where we left off
+## Round 3 decompile (2026-07-16) — spawn path & cadence nailed
 
-Mechanism is fully resolved; only minor confirmations remain, none blocking:
+Used the `CALLERS_OF` reference-discovery pass (`decompile_functions.py`) to
+recover the call graph. Results:
 
-- **Who calls `GetCount()` / `MB_PassThroughNPC.GetReady()`** (the town-enter
-  spawn point, i.e. how many ghosts get spawned from `GetCount`'s return). Not
-  needed to build the patch (we hook `GetCount` directly), but confirming it
-  would tell us whether inflating `GetCount` alone also increases the *visual*
-  ghost count or just the recruit budget.
-- Empirically confirm the `GetCount` postfix + `COMS` top-up actually yields
-  extra `AddReinforcer` calls in-town (drive it, watch population).
+- **`TownFunction.UpdatePhase` is the sole caller** of `GetCount`, `GetReady`,
+  and `CheckOverlap` — all inside **`case 10`** of its phase state machine
+  (`switch (this+0x58)`), a **one-shot town-load phase**. The spawn block:
+  `N = GetCount()` → `CheckOverlap()` → `do { GetReady(passCallback) } while
+  (--N)`. So `GetCount()` runs **once per town-entry**, and its return is
+  literally the ghost spawn count. This confirms the `GetCount`-postfix patch
+  fires exactly once per visit (safe) and controls the visible count directly.
+- The spawn is gated by `bVar3 & bVar4`: story progress
+  (`GameData.m_ProgressId` @0xcc, ranges `0x14..0x25` or `>=0x2e`) AND an
+  **Event-Viewer** gate (`SceneInfo.m_bIsEventViewer` @0x50 must be false — NOT
+  a network flag). `GetCount` is only called inside the gate — the patch
+  inherits it (see Recommended patch). Note `SceneInfo.m_RocationId` @0x48 is
+  the location id used in the `EnableTowns` `FindIndex` throughout.
+- **`c_setPassengerSpan` = `TimeSpan(3,0,0,0)` = 3 real days** (from `.cctor`).
+  The other spans: `c_downloadFriendSpan`=5h, `c_aliveCheckSpan`=24 days,
+  upload=3h, retry=10/30 min. All the online/SpotPass-era cadences — long.
+- `EnableTowns` / `EnableTownFlags` are `int[5]` → **5 towns** in the passenger
+  system (matches `GetCount`'s `iVar12-2U < 3` enabled-count bonus check).
+
+No open unknowns remain for the patch — ready to implement. Only follow-up is
+empirical: build the `GetCount` postfix (override return + set
+`TOWN_PS_LEFT[town]` + fill `COMS[town]`), then drive a town and watch
+population climb via `AddReinforcer`.
 
 ## (superseded) earlier open questions
 

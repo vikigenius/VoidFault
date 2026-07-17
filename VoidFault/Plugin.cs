@@ -17,7 +17,8 @@ public class Plugin : BasePlugin
     internal static ConfigEntry<bool> GoldUpEnabled;
     internal static ConfigEntry<int> GoldUpBonusPercent;
 
-    internal static ConfigEntry<bool> PassengerTestEnabled;
+    internal static ConfigEntry<bool> PassengerRateEnabled;
+    internal static ConfigEntry<int> PassengerSoulsPerTown;
 
     internal static ConfigEntry<bool> DebugLogging;
 
@@ -36,13 +37,17 @@ public class Plugin : BasePlugin
         GoldUpBonusPercent = Config.Bind("GoldUp", "BonusPercent", 20,
             "Percentage of earned Gil added as a bonus (e.g. 20 = +20%).");
 
-        PassengerTestEnabled = Config.Bind("PassengerTest", "Enabled", true,
-            "TEMPORARY verification hook: calls PassengerManager.IncomingCOM() once every time a TownFunction " +
-            "is constructed (i.e. entering a town), to test whether it actually places a recruitable Passing Soul. " +
-            "Not the final design -- see LEARNINGS.md.");
+        PassengerRateEnabled = Config.Bind("PassengerRate", "Enabled", true,
+            "Increase how many Passing Souls appear and can be recruited per town visit. Each recruited " +
+            "soul adds 1 colony population. Only takes effect where the game already spawns souls (i.e. " +
+            "past the story-progress gate); refreshes every visit, so re-entering a town lets you farm.");
+        PassengerSoulsPerTown = Config.Bind("PassengerRate", "SoulsPerTown", 5,
+            "Target number of Passing Souls per town visit (clamped 1-99). Note: offline, the actual number " +
+            "recruited may be limited by your existing guest pool -- enable Debug logging to check.");
 
         DebugLogging = Config.Bind("Debug", "Enabled", false,
-            "Log per-call details for JP Up / Gold Up / MAtk Scaling patches. Off by default. " +
+            "Log per-call details for JP Up / Gold Up / MAtk Scaling / Passenger Rate patches. Off by default. " +
+            "Passenger Rate logs once per town entry (not spammy). " +
             "Note: MAtk Scaling logs on every GetMATK call, which fires constantly outside battle too (menus, tooltips) — expect a lot of log lines while this is on.");
 
         // Harmony will auto-discover all [HarmonyPatch] classes in this assembly
