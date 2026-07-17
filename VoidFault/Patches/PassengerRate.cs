@@ -65,10 +65,14 @@ public static class PassengerRate
 
         __result = target;
 
-        if (Plugin.DebugLogging.Value)
-            Plugin.Log.LogInfo(
-                $"[PassengerRate] town-load: souls {vanillaCount} -> {__result} " +
-                $"(budget raised on {townsSet} town slots). " +
-                $"If recruits < {__result}, the guest pool (COMS) is the limiter.");
+        // Logged unconditionally, unlike the Debug-gated JPUp/GoldUp/MAtk patches
+        // (which fire per-battle or per-frame and are already verified). This one
+        // runs only once per town entry -- not spammy -- and is the only patch not
+        // yet confirmed in-game, so keep it visible without needing the noisy Debug
+        // flag. Quiet it (or fold into Debug) once confirmed working.
+        Plugin.Log.LogInfo(
+            $"[PassengerRate] town-load: souls {vanillaCount} -> {__result} " +
+            $"(budget raised on {townsSet} town slots). " +
+            $"If recruits < {__result}, the guest pool (COMS) is the limiter.");
     }
 }

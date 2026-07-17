@@ -46,8 +46,7 @@ public class Plugin : BasePlugin
             "recruited may be limited by your existing guest pool -- enable Debug logging to check.");
 
         DebugLogging = Config.Bind("Debug", "Enabled", false,
-            "Log per-call details for JP Up / Gold Up / MAtk Scaling / Passenger Rate patches. Off by default. " +
-            "Passenger Rate logs once per town entry (not spammy). " +
+            "Log per-call details for JP Up / Gold Up / MAtk Scaling patches. Off by default. " +
             "Note: MAtk Scaling logs on every GetMATK call, which fires constantly outside battle too (menus, tooltips) — expect a lot of log lines while this is on.");
 
         // Harmony will auto-discover all [HarmonyPatch] classes in this assembly
