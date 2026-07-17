@@ -45,6 +45,19 @@ in-game Friend Menu has separate "Friend Menu" and "Guest Menu" sections
   confirmed, by-design behavior. Not caused by mods, not an anti-tamper/DRM
   block.
 - Population, once earned, **persists regardless of online/offline status**.
+- The passenger runtime state is a save-serialized record, `PassengerControl`
+  (`IBSIO`), reachable at `Hikari+0x138`. Its fields (offsets from `dump.cs`):
+  `LEFT_COMS` @0x10 (int, global COM counter), `NEXT_UPLOAD` @0x18,
+  `NEXT_SET` @0x20 (DateTime cadence deadlines), `TOWN_PS_LEFT` @0x28
+  (`sbyte[]`, per-town budget of souls still to reveal), `COMS` @0x30
+  (`Stack<FriendState>[]`, per-town offline-dummy pool). `PassengerManager`'s
+  `TOWN_PS_LEFT`/`COMS`/`LEFT_COMS`/`NEXT_SET` properties just proxy into this.
+- Offset → field map for the decompiled functions (from `dump.cs` layout):
+  `PassengerManager+0x88` = `bCOMS_MODE` (offline dummy mode gate),
+  `+0xa8` = `bUseNet` (online mode gate), `+0x98` = `m_incomings`
+  (`List<UserMetaCore>[]`, per-town online download pool),
+  `+0x90` = `m_friends`. Cadence spans: `c_setPassengerSpan` @0x30,
+  `c_downloadFriendSpan` @0x38 (TimeSpan consts).
 
 ## What we tried, in order
 
@@ -101,7 +114,109 @@ in-game Friend Menu has separate "Friend Menu" and "Guest Menu" sections
    `GetCount()` were never the right lever for colony population at all, and
    we were reading an unrelated system's counter.
 
+## Decompile results (2026-07-16) — mechanism resolved
+
+Lifted the `bravely-default-mod` Ghidra flow (`import_il2cpp_labels.py` then
+`decompile_functions.py`) and decompiled six functions
+(`BDFFHD-dump/decompiled_output.txt`). `dump.cs` is **symbols only** — method
+bodies are empty stubs, so it gives layout/offsets but *no call graph*; callers
+have to come from Ghidra. The decompile turned two prior guesses into facts:
+
+- **The pipeline is two separate stages, previously conflated:**
+  - `IncomingCOM()` = **assignment/plumbing, not spawn.** It clears every
+    non-current town's `COMS` stack, walks the master `List<FriendState>` at
+    `Hikari+0xa0`, and for each `IsGuestPlayerType()` guest pushes it onto a
+    *random* enabled town's `COMS[town]` stack (town pool from
+    `GenComTowns()`). It then writes the pushed count into `LEFT_COMS`.
+    So **`GetCount()` == `LEFT_COMS` == guests-distributed-to-town-stacks** —
+    not friend-summon count (theory #8 was wrong) and not content generation.
+    With a near-empty guest pool offline it distributes ~nothing, which is why
+    the counter barely moved. This confirms IncomingCOM was never the lever.
+  - `Doit()` = **the atomic produce-one-passenger op** (the lever we wanted).
+    Two branches, both keyed on current town index and both decrementing
+    `TOWN_PS_LEFT[town]`:
+    - Branch 1 — **COM/dummy path**, gated by `bCOMS_MODE`: requires
+      `COMS[town]` non-empty and `TOWN_PS_LEFT[town] >= 1`, pops one
+      `FriendState` off `COMS[town]`, `SetNewIcon(1)`, returns it.
+    - Branch 2 — **online/download path**, gated by `bUseNet` + `bNonStash`:
+      picks a random `UserMetaCore` from `m_incomings[town]`,
+      `GenFromUserMetaCore()`, `RemoveAt`, decrements `TOWN_PS_LEFT`. New
+      records route to **`GameData.SetFsNonFriend` (guest/population)** or
+      `SetFsFriend` (friend roster) per the `b__9` check; existing records
+      `UpdateState` + `RenewABILINK`.
+- **Why nothing spawns offline is now concrete, not mysterious:** `Doit`
+  returns `0` unless `TOWN_PS_LEFT[town] >= 1` **and** the town's `COMS`/
+  `m_incomings` pool is non-empty. Offline the pool is empty → IncomingCOM
+  fills no stacks → budget stays 0 → `Doit` no-ops. Data starvation, not a
+  code block / DRM.
+- **`SetFsNonFriend` is the safe guest/population registration** — the clean
+  counterpart to the roster-poisoning `SetFsFriend`. Branch 2 shows the full
+  legit guest flow: `GenFromUserMetaCore → SetNewIcon → SetFsNonFriend`.
+- **`SetFsFriend` confirmed dangerous** (decompile lines 535–558): sets
+  `Friendship=1` and calls `GameData.SetFsFriend` → writes the battle-summon
+  roster. The earlier instinct to hold off was correct.
+- `TIME_CHECK_IMPL(now, ref deadline, span, force)`: if `force`, sets
+  `deadline = now + span`; returns `deadline < now | force`. Plain cadence
+  gate — the `NEXT_SET`/`NEXT_DOWNLOAD`/`NEXT_FRIEND` wrappers drive it with
+  `c_setPassengerSpan`/`c_downloadFriendSpan`.
+- `GenComTowns()` confirms enabled towns come from a story-gated bool array
+  (`BoolArray.get_Item`), empty-list fallback of `[0]`.
+- `TownFunction.DeleteThis()` confirms note #7: on town exit it calls
+  `MB_FieldUI.ClearPassenger` and resets the static flag at `TownFunction+0x31`
+  — passengers are town-scene-only, torn down on exit; `MB_FieldUI` is the
+  display side (consumer of `Doit()`'s output).
+
+### Where all-towns-have-a-value nets out
+`TOWN_PS_LEFT` (`sbyte[]`), `COMS` (`Stack[]`), `m_incomings` (`List[]`) are
+per-town arrays sized to the town count in the `PassengerControl` save record,
+so a **slot exists for every town**. But content is only populated for
+story-**enabled** towns (`GenComTowns` filters them out otherwise). For our
+patch this mostly *doesn't* matter: both the game and `Doit` index by the
+**current** town (via the `FindIndex` predicate), so we always act on wherever
+the player is — no need to enumerate towns, and blanket-seeding gated towns is
+pointless (they're excluded from distribution/display). "Works in every town"
+= yes, via current-town targeting.
+
 ## Open questions / where we left off
+
+The data model is now fully understood; the remaining gap is the
+**orchestrator**, and `dump.cs` can't close it (symbols only — re-run the
+Ghidra decompile with an expanded `FUNCTION_NAMES` to get these bodies):
+
+- **Who calls `Doit()`, and on what trigger/cadence?** This is what actually
+  makes a soul appear in-town and hands the `FriendState` to `MB_FieldUI`.
+  Likely `UpdateService()` (the tick loop running the `NEXT_SET` cadence)
+  and/or a town/field-UI passenger controller. Decompile `UpdateService`,
+  `NEXT_SET`, `GetCount`, and find `Doit`'s caller (look on the `MB_FieldUI` /
+  town-passenger side).
+- **Where does `TOWN_PS_LEFT[town]` get its budget set/replenished?** Only its
+  *decrement* (in `Doit`) has been seen. This per-town budget is the most
+  direct "how many souls per town" quantity lever — need the writer/initializer
+  and its default value.
+- **How does `COMS[town]` get seeded offline?** IncomingCOM only redistributes
+  the existing `Hikari+0xa0` guest pool; the offline dummy source is a separate,
+  not-yet-read step. NOTE: the earlier note about `DummyPassengersTable`/
+  `DummyPassengersJob` is **unverified** — grep finds no `DummyPassenger*`
+  symbol anywhere in this dump, so that name was likely misremembered. Find the
+  real source when decompiling `UpdateService`/`Loaded`.
+
+### Candidate levers for the "increase passing-soul rate" patch
+Ranked, given what's confirmed vs still-guessed:
+1. **Cadence span** (`c_setPassengerSpan` / `next_set`): global, town-agnostic,
+   trivial to shrink — but only speeds *timing*; useless if the pool/budget is
+   the real offline bottleneck (it is). Not sufficient alone offline.
+2. **Per-town budget + seed** (write `TOWN_PS_LEFT[currentTown]`, seed
+   `COMS[currentTown]` from DummyPassengers, set `bCOMS_MODE`, drive `Doit`):
+   most direct "make N souls appear," but re-implements the orchestrator and
+   still needs the confirmed display path (`Doit` → `MB_FieldUI` add-passenger).
+   Do **not** ship this on signature guessing — that's how the last two dead
+   ends happened. Decompile the orchestrator first, then hook it with a
+   configurable multiplier.
+- Simpler fallback still on the table, fully understood: directly increment
+  `ColonyData.population`. Less immersive (no ghost/recruit flow) but a plain
+  field we control.
+
+## (superseded) earlier open questions
 
 - Never found the actual passenger-spawns-into-a-town-scene logic.
   `TownEventLayoutCtrl` (tightly coupled to `TownFunction` via a private
@@ -125,6 +240,12 @@ in-game Friend Menu has separate "Friend Menu" and "Guest Menu" sections
 
 ## Reusable technique notes
 
+- `dump.cs` (Il2CppDumper output) is **symbols/layout only** — field offsets,
+  method signatures, type indices, but empty method bodies. Great for offset
+  → field-name mapping (how the raw decompile addresses were resolved above),
+  useless for call graphs. Callers/logic require the Ghidra decompile pass
+  (`decompile_functions.py`, edit `FUNCTION_NAMES`), lifted from
+  `bravely-default-mod`.
 - IL2CPP method names typically use a `$$` separator once imported into
   Ghidra/IDA (`ClassName$$MethodName`).
 - `AccessTools.TypeByName` + `AccessTools.Method`/`Constructor` (reflection-

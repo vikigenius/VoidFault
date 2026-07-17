@@ -13,12 +13,36 @@ investigating next.
 from ghidra.app.decompiler import DecompInterface
 
 FUNCTION_NAMES = [
+    # --- Round 1: data model (analyzed 2026-07-16, see RESEARCH_NOTES.md) ---
     "PassengerManager$$IncomingCOM",
     "PassengerManager$$Doit",
     "PassengerManager$$TIME_CHECK_IMPL",
     "PassengerManager$$GenComTowns",
     "PassengerManager$$SetFsFriend",
     "TownFunction$$DeleteThis",
+
+    # --- Round 2: the orchestrator / display trigger (remaining gaps) ---
+    # Who calls Doit() and turns a FriendState into a visible passing-soul NPC.
+    # MB_PassThroughNPC is the ghost NPC (SetGhostAlphaScale/FadeOut); these are
+    # the prime suspects for calling PassengerManager.Doit():
+    "MB_PassThroughNPC$$CheckOverlap",   # static; likely the field-side spawn/cadence check
+    "MB_PassThroughNPC$$Gen",            # builds one NPC -- expected Doit() caller
+    "MB_PassThroughNPC$$GetReady",       # readies a passing NPC
+    "MB_PassThroughNPC$$Update",         # per-frame driver
+    # Walk-into-a-soul recruit path (the actual "recruit" moment):
+    "MB_FieldUI$$PassingEachOther",
+    "MB_FieldUI$$OnPassingEachOther",
+
+    # Cadence tick + per-town budget (TOWN_PS_LEFT) source. TOWN_PS_LEFT has no
+    # setter of its own, so PassengerManager writes it directly -- find where:
+    "PassengerManager$$UpdateService",   # service tick running the NEXT_* cadence timers
+    "PassengerManager$$NEXT_SET",        # cadence wrapper (c_setPassengerSpan / next_set)
+    "PassengerManager$$Loaded",          # may init TOWN_PS_LEFT budget on save load
+    "PassengerManager$$GetCount",        # confirm GetCount() == LEFT_COMS
+
+    # Save (de)serialization of the PassengerControl record -- shows how
+    # COMS / TOWN_PS_LEFT are persisted and what their defaults are:
+    "PassengerControl$$WriteRead",
 ]
 
 OUTPUT_PATH = r"C:\Users\maste\Documents\Modding\BDFFHD\BDFFHD-dump\decompiled_output.txt"
