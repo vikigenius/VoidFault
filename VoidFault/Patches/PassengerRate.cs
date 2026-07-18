@@ -17,7 +17,7 @@ namespace VoidFault.Patches;
 /// is disabled without internet.
 ///
 /// Only fires where the game already spawns souls (past its story-progress
-/// gate). Runs once per town entry -- log is unconditional but not spammy.
+/// gate). Runs once per town entry.
 /// </summary>
 [HarmonyPatch(typeof(PassengerManager), nameof(PassengerManager.GetCount))]
 public static class PassengerRate
@@ -36,6 +36,7 @@ public static class PassengerRate
         int vanillaCount = __result;
         __result = target;
 
-        Plugin.Log.LogInfo($"[PassengerRate] town-load: ghosts {vanillaCount} -> {__result}");
+        if (Plugin.DebugLogging.Value)
+            Plugin.Log.LogInfo($"[PassengerRate] town-load: ghosts {vanillaCount} -> {__result}");
     }
 }

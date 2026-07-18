@@ -45,6 +45,7 @@ public static class PassengerRecruit
         int before = colony.population;
         colony.population = before + 1;
 
-        Plugin.Log.LogInfo($"[PassengerRecruit] passed a soul: population {before} -> {colony.population}");
+        if (Plugin.DebugLogging.Value)
+            Plugin.Log.LogInfo($"[PassengerRecruit] passed a soul: population {before} -> {colony.population}");
     }
 }

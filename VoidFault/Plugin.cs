@@ -46,7 +46,8 @@ public class Plugin : BasePlugin
             "Number of Passing Soul ghosts spawned per town visit (clamped 1-99). Pass each one to gain a villager.");
 
         DebugLogging = Config.Bind("Debug", "Enabled", false,
-            "Log per-call details for JP Up / Gold Up / MAtk Scaling patches. Off by default. " +
+            "Log per-call details for JP Up / Gold Up / MAtk Scaling / Passenger Rate patches. Off by default. " +
+            "Passenger Rate logs once per town entry and once per soul passed (not spammy). " +
             "Note: MAtk Scaling logs on every GetMATK call, which fires constantly outside battle too (menus, tooltips) — expect a lot of log lines while this is on.");
 
         // Harmony will auto-discover all [HarmonyPatch] classes in this assembly
