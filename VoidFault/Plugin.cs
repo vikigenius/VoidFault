@@ -23,6 +23,8 @@ public class Plugin : BasePlugin
     internal static ConfigEntry<bool> PassengerRateEnabled;
     internal static ConfigEntry<int> PassengerSoulsPerTown;
 
+    internal static ConfigEntry<bool> KeepSpecialChargeEnabled;
+
     internal static ConfigEntry<bool> DebugLogging;
 
     public override void Load()
@@ -53,8 +55,13 @@ public class Plugin : BasePlugin
         PassengerSoulsPerTown = Config.Bind("PassengerRate", "SoulsPerTown", 5,
             "Number of Passing Soul ghosts spawned per town visit (clamped 1-99). Pass each one to gain a villager.");
 
+        KeepSpecialChargeEnabled = Config.Bind("KeepSpecialCharge", "Enabled", true,
+            "Keep a weapon's Special (Finisher) charge -- the per-hand Spirit gauge that Default/Brave/Attack " +
+            "build up -- when you change equipment, so an accidental weapon swap doesn't wipe your special " +
+            "progress. Vanilla already preserves same-type swaps; this also preserves it across weapon-type changes.");
+
         DebugLogging = Config.Bind("Debug", "Enabled", false,
-            "Log per-call details for JP Up / Gold Up / Exp Up / MAtk Scaling / Passenger Rate patches. Off by default. " +
+            "Log per-call details for JP Up / Gold Up / Exp Up / MAtk Scaling / Passenger Rate / Keep Special Charge patches. Off by default. " +
             "Passenger Rate logs once per town entry and once per soul passed (not spammy). " +
             "Note: MAtk Scaling logs on every GetMATK call, which fires constantly outside battle too (menus, tooltips) — expect a lot of log lines while this is on.");
 
