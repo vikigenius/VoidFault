@@ -15,41 +15,30 @@ once (so functions are named). Edit the lists / OUTPUT_PATH as needed.
 """
 from ghidra.app.decompiler import DecompInterface
 
+# Passenger-souls investigation (rounds 1-3) is complete -- shipped, and its
+# decompiled_output is in git history. Left here commented for provenance:
+#   PassengerManager$$IncomingCOM/Doit/TIME_CHECK_IMPL/GenComTowns/SetFsFriend/
+#   UpdateService/NEXT_SET/Loaded/GetCount/.cctor, TownFunction$$DeleteThis,
+#   MB_PassThroughNPC$$CheckOverlap/Gen/GetReady/Update,
+#   MB_FieldUI$$PassingEachOther/OnPassingEachOther, PassengerControl$$WriteRead
+#   (+ CALLERS_OF GetCount/GetReady/CheckOverlap -> TownFunction$$UpdatePhase).
+
 FUNCTION_NAMES = [
-    # --- Round 1: data model (analyzed 2026-07-16, see RESEARCH_NOTES.md) ---
-    "PassengerManager$$IncomingCOM",
-    "PassengerManager$$Doit",
-    "PassengerManager$$TIME_CHECK_IMPL",
-    "PassengerManager$$GenComTowns",
-    "PassengerManager$$SetFsFriend",
-    "TownFunction$$DeleteThis",
-
-    # --- Round 2: orchestrator / display trigger (analyzed 2026-07-16) ---
-    "MB_PassThroughNPC$$CheckOverlap",   # despawns ghosts too close to player
-    "MB_PassThroughNPC$$Gen",            # builds one ghost visual (no Doit)
-    "MB_PassThroughNPC$$GetReady",       # spawns a ghost visual
-    "MB_PassThroughNPC$$Update",         # per-frame driver
-    "MB_FieldUI$$PassingEachOther",      # player crosses a soul
-    "MB_FieldUI$$OnPassingEachOther",    # Doit() -> AddReinforcer(1) = +1 pop
-    "PassengerManager$$UpdateService",   # online/network service tick (not spawner)
-    "PassengerManager$$NEXT_SET",        # cadence wrapper (c_setPassengerSpan)
-    "PassengerManager$$Loaded",          # rebuilds COMS from guest list on load
-    "PassengerManager$$GetCount",        # orchestrator: min(TOWN_PS_LEFT[town], pool)
-    "PassengerControl$$WriteRead",       # save (de)serialization of the record
-
-    # --- Round 3: cadence-span value ---
-    # static readonly TimeSpan c_setPassengerSpan is set in the static ctor;
-    # decompiling it should reveal the actual refresh period (ticks/args).
-    "PassengerManager$$.cctor",
+    # --- Round 5: weapon-special "Spirit" (SP) reset-on-equip investigation ---
+    # SPIRIT is CharacterState.SPIRIT (int[] per hand, 0..1000); actions charge
+    # it (CheckSpiritDefault etc.), the weapon special unlocks when it's full.
+    # Hypothesis: equipping a weapon zeroes that hand's Spirit -> lost progress.
+    # Confirm the reset site before patching.
+    "CharacterState$$SetRHAND",     # right-hand equip setter (suspected reset)
+    "CharacterState$$SetLHAND",     # left-hand equip setter
+    "CharacterState$$SetSPIRIT",    # the Spirit setter/zeroer
+    "CharacterState$$GetSPIRIT",    # reader (for reference)
 ]
 
-# --- Round 3: recover the call graph for the two open unknowns ---
-# Who calls GetCount() (how often -> per-visit vs per-frame), and who calls the
-# ghost spawner GetReady()/CheckOverlap() (the visual passing-soul cadence).
+# Recover every place Spirit is set/zeroed -- especially the equip reset that
+# clears a hand's gauge on weapon change.
 CALLERS_OF = [
-    "PassengerManager$$GetCount",
-    "MB_PassThroughNPC$$GetReady",
-    "MB_PassThroughNPC$$CheckOverlap",
+    "CharacterState$$SetSPIRIT",
 ]
 
 OUTPUT_PATH = r"C:\Users\maste\Documents\Modding\BDFFHD\BDFFHD-dump\decompiled_output.txt"
