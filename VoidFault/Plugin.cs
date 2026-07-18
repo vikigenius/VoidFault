@@ -17,6 +17,9 @@ public class Plugin : BasePlugin
     internal static ConfigEntry<bool> GoldUpEnabled;
     internal static ConfigEntry<int> GoldUpBonusPercent;
 
+    internal static ConfigEntry<bool> ExpUpEnabled;
+    internal static ConfigEntry<int> ExpUpBonusPercent;
+
     internal static ConfigEntry<bool> PassengerRateEnabled;
     internal static ConfigEntry<int> PassengerSoulsPerTown;
 
@@ -37,6 +40,11 @@ public class Plugin : BasePlugin
         GoldUpBonusPercent = Config.Bind("GoldUp", "BonusPercent", 20,
             "Percentage of earned Gil added as a bonus (e.g. 20 = +20%).");
 
+        ExpUpEnabled = Config.Bind("ExpUp", "Enabled", true,
+            "Grant every character a bonus to EXP earned after battle, stacking with any vanilla EXP boosts.");
+        ExpUpBonusPercent = Config.Bind("ExpUp", "BonusPercent", 20,
+            "Percentage of earned EXP added as a bonus (e.g. 20 = +20%).");
+
         PassengerRateEnabled = Config.Bind("PassengerRate", "Enabled", true,
             "Spawn extra Passing Souls per town visit and grant +1 village population for each one you pass. " +
             "Works offline by adding to the colony directly (the vanilla guest-recruit system is disabled " +
@@ -46,7 +54,7 @@ public class Plugin : BasePlugin
             "Number of Passing Soul ghosts spawned per town visit (clamped 1-99). Pass each one to gain a villager.");
 
         DebugLogging = Config.Bind("Debug", "Enabled", false,
-            "Log per-call details for JP Up / Gold Up / MAtk Scaling / Passenger Rate patches. Off by default. " +
+            "Log per-call details for JP Up / Gold Up / Exp Up / MAtk Scaling / Passenger Rate patches. Off by default. " +
             "Passenger Rate logs once per town entry and once per soul passed (not spammy). " +
             "Note: MAtk Scaling logs on every GetMATK call, which fires constantly outside battle too (menus, tooltips) — expect a lot of log lines while this is on.");
 
