@@ -24,21 +24,14 @@ namespace VoidFault.Patches;
 /// This prefix skips FinisherSpiritsCheck entirely, so Spirit is never reset on
 /// an equipment change. Its only effect is that reset, so skipping is safe.
 ///
-/// Targeted via AccessTools.TypeByName because UIRoot.Equipment is awkward to
-/// reference with typeof() under Il2CppInterop (same approach as the old
-/// PassengerTest hook).
+/// Applied MANUALLY from Plugin.Load (not auto-discovered by PatchAll): the
+/// target is resolved by name via AccessTools.TypeByName (UIRoot.Equipment is
+/// awkward to reference with typeof() under Il2CppInterop). Doing it manually
+/// means a failed resolution or hook-init logs a clear one-line status at
+/// startup instead of throwing inside PatchAll (which could abort other patches).
 /// </summary>
-[HarmonyPatch]
 public static class KeepSpecialCharge
 {
-    [HarmonyTargetMethod]
-    public static MethodBase TargetMethod()
-    {
-        Type equipmentType = AccessTools.TypeByName("UIRoot.Equipment");
-        return AccessTools.Method(equipmentType, "FinisherSpiritsCheck");
-    }
-
-    [HarmonyPrefix]
     public static bool Prefix()
     {
         if (!Plugin.KeepSpecialChargeEnabled.Value) return true; // run vanilla (reset)
@@ -47,5 +40,37 @@ public static class KeepSpecialCharge
             Plugin.Log.LogInfo("[KeepSpecialCharge] skipped Spirit reset on equipment change");
 
         return false; // skip original -> Spirit preserved across weapon changes
+    }
+
+    /// <summary>
+    /// Resolve and patch the target, logging a definitive attach status.
+    /// Called once from Plugin.Load. The status line is unconditional (not gated
+    /// by Debug logging) so it's easy to confirm the hook took without turning on
+    /// per-call spam.
+    /// </summary>
+    public static void Apply(Harmony harmony)
+    {
+        try
+        {
+            Type equipmentType = AccessTools.TypeByName("UIRoot.Equipment");
+            MethodBase target = equipmentType != null
+                ? AccessTools.Method(equipmentType, "FinisherSpiritsCheck")
+                : null;
+
+            if (target == null)
+            {
+                Plugin.Log.LogWarning(
+                    "[KeepSpecialCharge] NOT attached: could not resolve " +
+                    "UIRoot.Equipment.FinisherSpiritsCheck. Special charge will still reset on weapon change.");
+                return;
+            }
+
+            harmony.Patch(target, prefix: new HarmonyMethod(typeof(KeepSpecialCharge), nameof(Prefix)));
+            Plugin.Log.LogInfo("[KeepSpecialCharge] attached to UIRoot.Equipment.FinisherSpiritsCheck.");
+        }
+        catch (Exception ex)
+        {
+            Plugin.Log.LogWarning($"[KeepSpecialCharge] NOT attached (hook failed): {ex}");
+        }
     }
 }

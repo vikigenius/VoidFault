@@ -65,9 +65,14 @@ public class Plugin : BasePlugin
             "Passenger Rate logs once per town entry and once per soul passed (not spammy). " +
             "Note: MAtk Scaling logs on every GetMATK call, which fires constantly outside battle too (menus, tooltips) — expect a lot of log lines while this is on.");
 
-        // Harmony will auto-discover all [HarmonyPatch] classes in this assembly
+        // Harmony auto-discovers all [HarmonyPatch] classes in this assembly.
         var harmony = new Harmony(PluginInfo.GUID);
         harmony.PatchAll();
+
+        // KeepSpecialCharge is applied manually (resolved by name) so it logs a
+        // definitive attach status at startup and can't abort PatchAll on a
+        // failed resolution.
+        Patches.KeepSpecialCharge.Apply(harmony);
 
         Log.LogInfo("Patches applied.");
     }
