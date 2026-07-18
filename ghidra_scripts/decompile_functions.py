@@ -23,22 +23,27 @@ from ghidra.app.decompiler import DecompInterface
 #   MB_FieldUI$$PassingEachOther/OnPassingEachOther, PassengerControl$$WriteRead
 #   (+ CALLERS_OF GetCount/GetReady/CheckOverlap -> TownFunction$$UpdatePhase).
 
+# Round 5 (weapon-special "Spirit" reset-on-equip) is complete -- confirmed the
+# reset is UIRoot.Equipment.FinisherSpiritsCheck; that output is in git history.
+
 FUNCTION_NAMES = [
-    # --- Round 5: weapon-special "Spirit" (SP) reset-on-equip investigation ---
-    # SPIRIT is CharacterState.SPIRIT (int[] per hand, 0..1000); actions charge
-    # it (CheckSpiritDefault etc.), the weapon special unlocks when it's full.
-    # Hypothesis: equipping a weapon zeroes that hand's Spirit -> lost progress.
-    # Confirm the reset site before patching.
-    "CharacterState$$SetRHAND",     # right-hand equip setter (suspected reset)
-    "CharacterState$$SetLHAND",     # left-hand equip setter
-    "CharacterState$$SetSPIRIT",    # the Spirit setter/zeroer
-    "CharacterState$$GetSPIRIT",    # reader (for reference)
+    # --- Round 6: battle-results EXP/JP display vs reward mismatch ---
+    # GoldUp edits ResultData.gil (both shown and awarded -> display correct).
+    # JPUp/ExpUp edit the ReviseAddJEXP/ReviseAddEXP bonus (the applied per-char
+    # reward), a DIFFERENT value than the ResultData.exp/jobexp totals the
+    # results screen shows -> reward works but the summary stays stale.
+    # Goal: can we bump ResultData.exp/jobexp for display WITHOUT doubling the
+    # reward? Need to know whether ReviseAddEXP reads ResultData.exp as its base.
+    "BtlSequenceCtrl$$CreateResultData",   # how ResultData.exp/jobexp/gil/bonusExp are set
+    "BtlResultCtrl$$ReviseAddEXP",         # reward path: what it reads / writes
+    "BtlResultCtrl$$ReviseAddJEXP",
 ]
 
-# Recover every place Spirit is set/zeroed -- especially the equip reset that
-# clears a hand's gauge on weapon change.
+# Who calls ReviseAddEXP/ReviseAddJEXP and with which args -- reveals whether
+# ResultData.exp is the base fed in (i.e. whether bumping it doubles the reward).
 CALLERS_OF = [
-    "CharacterState$$SetSPIRIT",
+    "BtlResultCtrl$$ReviseAddEXP",
+    "BtlResultCtrl$$ReviseAddJEXP",
 ]
 
 OUTPUT_PATH = r"C:\Users\maste\Documents\Modding\BDFFHD\BDFFHD-dump\decompiled_output.txt"
