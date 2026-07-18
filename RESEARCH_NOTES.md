@@ -331,6 +331,39 @@ empirical: build the `GetCount` postfix (override return + set
 `TOWN_PS_LEFT[town]` + fill `COMS[town]`), then drive a town and watch
 population climb via `AddReinforcer`.
 
+## Round 4 (2026-07-18) — offline reality & final design
+
+Built the `GetCount` postfix and tested in-game. Findings:
+
+- **Empirical confirmation the guest pool is empty offline.** The patch logged
+  `souls 0 -> 5`: vanilla `GetCount()` returned **0**, i.e.
+  `min(TOWN_PS_LEFT[town], COMS[town].Count) = 0` — the `COMS` pool is empty.
+  The game itself states the guest system is disabled without internet (only
+  friend-bots persist), so offline the pool the recruit path draws from is
+  never filled. Ghosts spawn (our override) but `Doit()` returns null on pass →
+  no recruit. GetCount fires on every town entry *and* after cutscenes — fine,
+  not problematic.
+- **`AddReinforcer` does NOT move the visible village count.** `ColonyData`
+  splits `population` (@0x14 — the visible count, cap `COLONYDATA_POPULATIONMAX`
+  = 999) from `reinforcer` (@0x18 — a *pending* queue). The vanilla recruit's
+  `ColonyShare.DataAccessor.AddReinforcer(1)` only bumps `reinforcer`; a
+  separate `CommitReinforcer()` converts it to `population`. So even reviving
+  the guest/friend-bot path (filling `COMS`) would only queue pending
+  reinforcers, not raise the village count, without a commit. Reaching the count
+  is `GameData.GetColonyData().population` (both public).
+- **Final design — bypass the offline-disabled guest system entirely:**
+  - `PassengerRate` (`GetCount` postfix): override the return so `N` ghosts
+    spawn. Nothing else — dropped the `TOWN_PS_LEFT` write (it only mattered for
+    the now-abandoned `Doit` path).
+  - `PassengerRecruit` (new, postfix `MB_FieldUI.OnPassingEachOther`): fires
+    once per completed pass (offline included) → `ColonyData.population += 1`
+    (clamped 999), gated to `!PassengerManager.IsOnline` so it never
+    double-grants with the vanilla online flow. `OnPassingEachOther` is private
+    → targeted by name; fallback hook is public `PassingEachOther(npc)`.
+- The blunt-fallback from earlier notes is now the actual mechanism: we add to
+  `ColonyData.population` directly. The immersive framing is preserved — souls
+  still spawn and you gain a villager per soul you pass.
+
 ## (superseded) earlier open questions
 
 - Never found the actual passenger-spawns-into-a-town-scene logic.
