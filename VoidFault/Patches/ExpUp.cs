@@ -3,23 +3,39 @@ using HarmonyLib;
 namespace VoidFault.Patches;
 
 /// <summary>
-/// Grants every character an unconditional EXP bonus on top of whatever the game
-/// already computed for that battle, so it stacks with any vanilla EXP boosts
-/// rather than replacing them. Mirrors JPUp, hooking the EXP sibling
-/// BtlResultCtrl.ReviseAddEXP (bonusexp is the by-ref bonus accumulator).
+/// Grants a bonus to EXP earned after battle, stacking with vanilla bonuses.
+///
+/// Bumps ResultData.exp in BtlSequenceCtrl.CreateResultData -- the same struct
+/// and approach GoldUp uses for gil -- so BOTH the results-screen total AND the
+/// applied per-character reward increase consistently. BtlResultCtrl.Update
+/// reads ResultData.exp into the displayed total (m_addEXP = ResultData.exp +
+/// bonus) and also passes ResultData.exp as the base to ReviseAddEXP (the reward
+/// applied to each character's EXP).
+///
+/// Previously this hooked ReviseAddEXP directly, which raised the reward but not
+/// the shown total (the display total is computed from ResultData.exp *before*
+/// ReviseAddEXP runs). Net reward is the same; this just also fixes the display.
 /// </summary>
-[HarmonyPatch(typeof(BtlResultCtrl), nameof(BtlResultCtrl.ReviseAddEXP))]
+[HarmonyPatch(typeof(BtlSequenceCtrl), nameof(BtlSequenceCtrl.CreateResultData))]
 public static class ExpUp
 {
-    [HarmonyPrefix]
-    public static void Prefix(int exp, ref int bonusexp)
+    [HarmonyPostfix]
+    public static void Postfix(BtlSequenceCtrl __instance)
     {
         if (!Plugin.ExpUpEnabled.Value) return;
 
-        int before = bonusexp;
-        bonusexp += exp * Plugin.ExpUpBonusPercent.Value / 100;
+        ResultData result = __instance.GetResultData();
+        if (result == null)
+        {
+            if (Plugin.DebugLogging.Value)
+                Plugin.Log.LogInfo("[ExpUp] CreateResultData fired but GetResultData() was null.");
+            return;
+        }
+
+        int before = result.exp;
+        result.exp += result.exp * Plugin.ExpUpBonusPercent.Value / 100;
 
         if (Plugin.DebugLogging.Value)
-            Plugin.Log.LogInfo($"[ExpUp] exp={exp} bonusexp {before} -> {bonusexp}");
+            Plugin.Log.LogInfo($"[ExpUp] exp {before} -> {result.exp}");
     }
 }
