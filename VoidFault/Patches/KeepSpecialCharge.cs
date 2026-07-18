@@ -24,11 +24,16 @@ namespace VoidFault.Patches;
 /// This prefix skips FinisherSpiritsCheck entirely, so Spirit is never reset on
 /// an equipment change. Its only effect is that reset, so skipping is safe.
 ///
-/// Applied MANUALLY from Plugin.Load (not auto-discovered by PatchAll): the
-/// target is resolved by name via AccessTools.TypeByName (UIRoot.Equipment is
-/// awkward to reference with typeof() under Il2CppInterop). Doing it manually
-/// means a failed resolution or hook-init logs a clear one-line status at
-/// startup instead of throwing inside PatchAll (which could abort other patches).
+/// Applied MANUALLY from Plugin.Load (not auto-discovered by PatchAll) so a
+/// failed resolution or hook-init logs a clear one-line status at startup
+/// instead of throwing inside PatchAll (which could abort other patches).
+///
+/// The type is resolved with typeof(UIRoot.Equipment), NOT AccessTools.
+/// TypeByName: the latter scans every loaded assembly via Assembly.GetTypes(),
+/// which throws a benign "Could not load type '&lt;&gt;c'" from an unrelated
+/// compiler-generated closure in UnityEngine.CoreModule that Il2CppInterop can't
+/// fully load. Harmony catches it and the patch still attaches, but it spams the
+/// log. typeof touches only this type -- no scan, no noise.
 /// </summary>
 public static class KeepSpecialCharge
 {
@@ -52,10 +57,7 @@ public static class KeepSpecialCharge
     {
         try
         {
-            Type equipmentType = AccessTools.TypeByName("UIRoot.Equipment");
-            MethodBase target = equipmentType != null
-                ? AccessTools.Method(equipmentType, "FinisherSpiritsCheck")
-                : null;
+            MethodBase target = AccessTools.Method(typeof(UIRoot.Equipment), "FinisherSpiritsCheck");
 
             if (target == null)
             {

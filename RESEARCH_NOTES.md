@@ -406,3 +406,9 @@ Built the `GetCount` postfix and tested in-game. Findings:
   `<>c` closure in `UnityEngine.CoreModule`). This is benign noise from the
   scan itself, not a sign our own patch failed — check whether the intended
   type/method actually resolved before treating it as an error.
+  **Confirmed in VoidFault** (KeepSpecialCharge logged exactly this "Could not
+  load type '<>c' from UnityEngine.CoreModule" right before successfully
+  attaching). To avoid the noise entirely, resolve via `typeof(GameType)` (hits
+  only that one type) instead of `AccessTools.TypeByName` (all-assembly
+  `GetTypes()` scan). `typeof` works fine for plain game interop types — only
+  reach for `TypeByName` when a type genuinely can't be referenced directly.
