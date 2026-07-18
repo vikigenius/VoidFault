@@ -38,12 +38,12 @@ public class Plugin : BasePlugin
             "Percentage of earned Gil added as a bonus (e.g. 20 = +20%).");
 
         PassengerRateEnabled = Config.Bind("PassengerRate", "Enabled", true,
-            "Increase how many Passing Souls appear and can be recruited per town visit. Each recruited " +
-            "soul adds 1 colony population. Only takes effect where the game already spawns souls (i.e. " +
-            "past the story-progress gate); refreshes every visit, so re-entering a town lets you farm.");
+            "Spawn extra Passing Souls per town visit and grant +1 village population for each one you pass. " +
+            "Works offline by adding to the colony directly (the vanilla guest-recruit system is disabled " +
+            "without internet). Only takes effect where the game already spawns souls (past the story-progress " +
+            "gate); refreshes every visit, so re-entering a town lets you farm. Population caps at 999.");
         PassengerSoulsPerTown = Config.Bind("PassengerRate", "SoulsPerTown", 5,
-            "Target number of Passing Souls per town visit (clamped 1-99). Note: offline, the actual number " +
-            "recruited may be limited by your existing guest pool -- enable Debug logging to check.");
+            "Number of Passing Soul ghosts spawned per town visit (clamped 1-99). Pass each one to gain a villager.");
 
         DebugLogging = Config.Bind("Debug", "Enabled", false,
             "Log per-call details for JP Up / Gold Up / MAtk Scaling patches. Off by default. " +
