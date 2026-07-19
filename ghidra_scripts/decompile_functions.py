@@ -96,7 +96,8 @@ FUNCTION_NAMES = [
     # (consumables). Find out how the category list is built and what caps it at 55 -
     # is it a fixed count, an INDEX range, or a per-category id/TYPE filter we can satisfy?
     "UIRoot.DReportMenu.CompleteList$$UpdatePictureBookItemCategory",  # builds a category's list
-    "UIRoot.DReportMenu.CompleteList.<>c__DisplayClass11_0$$<UpdatePictureBookItemCategory>b__0",  # per-entry DNoteItemTable filter
+    # (the per-entry DNoteItemTable filter lambda is in BY_RVA below - its mangled
+    #  generic/lambda name doesn't resolve by-name.)
     "UIRoot.DReportMenu.<PictureBookCoroutine>d__61$$MoveNext",        # coroutine that populates the book
 ]
 
@@ -115,6 +116,9 @@ CALLERS_OF = [
 # create the function if one doesn't exist there. RVA is relative to the image
 # base; VA = imageBase + RVA. (Empty now -- 0x544050 was just a trivial getter.)
 BY_RVA = [
+    # DReportMenu picture-book item-category filter lambda (Round 8); mangled
+    # generic/lambda name won't resolve by-name, so resolve by RVA.
+    ("DReportMenu.<UpdatePictureBookItemCategory>b__0", 0x8F86B0),
 ]
 
 OUTPUT_PATH = r"C:\Users\maste\Documents\Modding\BDFFHD\BDFFHD-dump\decompiled_output.txt"
