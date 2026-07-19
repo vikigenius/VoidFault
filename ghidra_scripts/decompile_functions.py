@@ -26,24 +26,43 @@ from ghidra.app.decompiler import DecompInterface
 # Round 5 (weapon-special "Spirit" reset-on-equip) is complete -- confirmed the
 # reset is UIRoot.Equipment.FinisherSpiritsCheck; that output is in git history.
 
+# Round 6 (battle-results EXP/JP display vs reward mismatch) is complete -- output
+# in git history. Involved BtlSequenceCtrl$$CreateResultData, BtlResultCtrl$$
+# ReviseAddEXP/ReviseAddJEXP (+ CALLERS_OF those -> BtlResultCtrl$$Update).
+
 FUNCTION_NAMES = [
-    # --- Round 6: battle-results EXP/JP display vs reward mismatch ---
-    # GoldUp edits ResultData.gil (both shown and awarded -> display correct).
-    # JPUp/ExpUp edit the ReviseAddJEXP/ReviseAddEXP bonus (the applied per-char
-    # reward), a DIFFERENT value than the ResultData.exp/jobexp totals the
-    # results screen shows -> reward works but the summary stays stale.
-    # Goal: can we bump ResultData.exp/jobexp for display WITHOUT doubling the
-    # reward? Need to know whether ReviseAddEXP reads ResultData.exp as its base.
-    "BtlSequenceCtrl$$CreateResultData",   # how ResultData.exp/jobexp/gil/bonusExp are set
-    "BtlResultCtrl$$ReviseAddEXP",         # reward path: what it reads / writes
-    "BtlResultCtrl$$ReviseAddJEXP",
+    # --- Round 7a: Black Resonance scaling for a LONE user (data-mod question) ---
+    # Black Resonance is one ability (1141), Black Mage's specialty, learned at
+    # job Lv8. Its black-magic damage bonus lives in CorrectionData.magSympathy[0..3],
+    # indexed by number of OTHER allies (excluding self) that have it set:
+    #   vanilla [10,110,115,120] = 0 others "no effect", then x1.10/1.15/1.20.
+    # The _0 slot looks dead: a naive multiply by 10/100 would nuke a solo user to
+    # x0.10, which does NOT happen in vanilla -> the solo case must be guarded.
+    # The BlackResonance ref-mod sets _0 -> 110 hoping a lone Black Mage gets x1.1.
+    # QUESTION: does GetMagicSympathy read magSympathy[0] and apply it when
+    # otherCount==0 (mod works), or hard-return 1.0 for the solo case (mod's _0
+    # edit is inert)? Read the branch on the ally count and how the array is indexed.
+    "BtlCharaManager$$GetMagicSympathy",   # RVA 0x9B0210, returns float
+
+    # --- Round 7b: where "% Up" stat passives actually apply (data-mod question) ---
+    # The passive "Speed 10/20/30% Up" (Thief, IDs 1522/1523/1528) and
+    # "Evade 10/20/30% Up" (Ninja, IDs 1222/1225/1227) carry NO value in
+    # SupportAbility.btb -- every CHANGE_* field is 100 (no-op), and there is no
+    # SupportType enum entry for a generic speed/evade up. So the effect must be
+    # applied in native stat-calc, keyed by ability ID. Confirm that and read the
+    # exact percentages / how the equipped-ability list is scanned.
+    # GOAL: know whether the effect is ID-hardcoded (=> can't repurpose an ability's
+    # effect via a pure data mod, only its name/doc/cost/icon; effect change needs
+    # a code mod or a JobTable learn-slot swap to an already-working ability).
+    "CharacterState$$GetSTATUSUP_AGI",     # RVA 0x544050 - agility "status up" (Speed % Up?)
+    "CharacterState$$GetAGI",              # RVA 0x63A800 - final agility (how STATUSUP feeds in)
+    "CharacterState$$GetDOD",              # RVA 0x63CC70 - dodge/evasion (Evade % Up)
 ]
 
-# Who calls ReviseAddEXP/ReviseAddJEXP and with which args -- reveals whether
-# ResultData.exp is the base fed in (i.e. whether bumping it doubles the reward).
+# Callers of GetMagicSympathy show where the multiplier is applied to black-magic
+# damage -- confirms the array indexing / any solo-case guard in situ.
 CALLERS_OF = [
-    "BtlResultCtrl$$ReviseAddEXP",
-    "BtlResultCtrl$$ReviseAddJEXP",
+    "BtlCharaManager$$GetMagicSympathy",
 ]
 
 OUTPUT_PATH = r"C:\Users\maste\Documents\Modding\BDFFHD\BDFFHD-dump\decompiled_output.txt"
