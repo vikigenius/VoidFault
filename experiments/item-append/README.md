@@ -43,6 +43,9 @@ Copy `full/Common_en/` over `Common_en/`. Overwrites the two above PLUS:
   at rec 597 (parallel index).
 - `Colony/PlantParameter.btb` — colony/Adventurer shop slot (rec 8) now sells
   id **90051** (the appended Magnifying Glass).
+- `Paramater/DNoteItemTable.btb` — D's Journal item map, grown 314 → **315**
+  (appends `ID 90051 -> INDEX 314`) so the Magnifying Glass gets an encyclopedia
+  entry. Reconstructed from vanilla JSON (pure ints, no strings), verified.
 
 **Verify in-game (each observable tests a different thing):**
 1. **Game boots / loads a save without crashing** → a 598-row ItemTable loads at
@@ -54,6 +57,11 @@ Copy `full/Common_en/` over `Common_en/`. Overwrites the two above PLUS:
    indexed correctly (parallel to ItemTable).
 4. **Use it in battle** → triggers Examine (enemy HP/weaknesses) → the appended
    item is fully functional.
+5. **D's Journal / encyclopedia** → the Magnifying Glass now has an item note
+   (from the appended `DNoteItemTable` row + its `DetailInfoItemTable` text) →
+   appending to the journal map works. (Buyable + usable were already confirmed;
+   this step is the remaining unknown — the journal UI may have its own INDEX or
+   count expectations.)
 - Any of these failing (esp. #1 a crash on load) → ItemTable append isn't safely
   honored; keep the dummy-repurpose approach for new items. Note which step fails.
 
