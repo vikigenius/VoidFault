@@ -47,7 +47,11 @@ public static class BlackResonanceSolo
             return false;
         }
 
-        BtlCorrectionData correction = BtlDataManager.Instance?.GetCorrectionData(0);
+        // Reach CorrectionData via instance methods (Singleton<T>.GetInstance is a
+        // generic-base static that Il2CppInterop doesn't surface as a usable member).
+        BtlFunction btlFunction = __instance.GetBtlFunction();
+        BtlDataManager dataManager = btlFunction?.GetBtlDataManager();
+        BtlCorrectionData correction = dataManager?.GetCorrectionData(0);
         Il2CppStructArray<int> mag = correction?.magSympathy;
         if (mag == null || mag.Length == 0)
         {
