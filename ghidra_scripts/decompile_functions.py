@@ -15,6 +15,12 @@ once (so functions are named). Edit the lists / OUTPUT_PATH as needed.
 """
 from ghidra.app.decompiler import DecompInterface
 
+# CONVENTION: rounds ACCUMULATE -- keep each round's targets in the lists below and
+# just append new ones. Decompiling is fast and the output isn't large, so we favor
+# one cumulative decompiled_output.txt over per-round churn. Only remove a round's
+# targets when it's explicitly settled (then note it in the provenance block below).
+# Rounds 1-6 were removed under that rule before this convention; kept as comments.
+
 # Passenger-souls investigation (rounds 1-3) is complete -- shipped, and its
 # decompiled_output is in git history. Left here commented for provenance:
 #   PassengerManager$$IncomingCOM/Doit/TIME_CHECK_IMPL/GenComTowns/SetFsFriend/
@@ -54,7 +60,8 @@ FUNCTION_NAMES = [
     # GOAL: know whether the effect is ID-hardcoded (=> can't repurpose an ability's
     # effect via a pure data mod, only its name/doc/cost/icon; effect change needs
     # a code mod or a JobTable learn-slot swap to an already-working ability).
-    "CharacterState$$GetSTATUSUP_AGI",     # RVA 0x544050 - agility "status up" (Speed % Up?)
+    # GetSTATUSUP_AGI is resolved via BY_RVA below (label import knows the name but
+    # Ghidra didn't auto-create a function at its address -> NOT FOUND by name).
     "CharacterState$$GetAGI",              # RVA 0x63A800 - final agility (how STATUSUP feeds in)
     "CharacterState$$GetDOD",              # RVA 0x63CC70 - dodge/evasion (Evade % Up)
 
@@ -79,6 +86,15 @@ FUNCTION_NAMES = [
 # damage -- confirms the array indexing / any solo-case guard in situ.
 CALLERS_OF = [
     "BtlCharaManager$$GetMagicSympathy",
+]
+
+# Functions the label import named but Ghidra never turned into a function object
+# (they sit in code regions auto-analysis didn't fully carve up), so they come
+# back NOT FOUND by name. Resolve them by RVA (from dump.cs / script.json) and
+# create the function if one doesn't exist there. RVA is relative to the image
+# base; VA = imageBase + RVA.
+BY_RVA = [
+    ("CharacterState$$GetSTATUSUP_AGI", 0x544050),  # agility "status up" (Speed % Up?)
 ]
 
 OUTPUT_PATH = r"C:\Users\maste\Documents\Modding\BDFFHD\BDFFHD-dump\decompiled_output.txt"
@@ -130,6 +146,19 @@ with open(OUTPUT_PATH, "w") as out:
             continue
         for func in matches:
             decompile_to(out, func, seen)
+
+    for label, rva in BY_RVA:
+        addr = currentProgram.getImageBase().add(rva)
+        func = getFunctionAt(addr)
+        if func is None:
+            func = createFunction(addr, label)   # carve one out if analysis missed it
+        if func is None:
+            func = fm.getFunctionContaining(addr)  # fall back to enclosing function
+        if func is None:
+            out.write("=== %s @ rva %#x: NO FUNCTION (create failed) ===\n\n" % (label, rva))
+            print("NO FUNCTION at %#x for %s" % (rva, label))
+            continue
+        decompile_to(out, func, seen)
 
     for name in CALLERS_OF:
         out.write("########## CALLERS OF %s ##########\n\n" % name)
