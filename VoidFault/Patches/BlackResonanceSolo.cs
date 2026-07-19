@@ -58,6 +58,10 @@ public static class BlackResonanceSolo
         int idx = count - 1;
         if (idx >= mag.Length) idx = mag.Length - 1; // clamp (party is 4, array is 4)
         __result = mag[idx] / 100.0f;
+
+        // Non-gated: only fires when Black Resonance is actually in play (count > 0),
+        // so it's a clean confirmation the patch is live without spamming every cast.
+        Plugin.Log.LogInfo($"[BlackResonanceSolo] users={count} -> magSympathy[{idx}] = x{__result}");
         return false; // skip original
     }
 }
