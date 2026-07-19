@@ -37,19 +37,24 @@ bottom.
 
 Copy `full/Common_en/` over `Common_en/`. Overwrites the two above PLUS:
 - `Paramater/ItemTable.btb` — 597 → **598** rows. Dummy "Key Item Dmmy 10"
-  (rec 596, id 90050) is **kept**; a new **Magnifying Glass** is **appended**
-  (rec 597, **new id 90051**, TYPE 16 battle item, USE_ABI 101 = Examine,
-  **ENABLE=1**). NOTE: `ENABLE` must be 1 or the item is filtered out of the D's
-  Journal subsection (all 314 journal items are ENABLE=1); the original refmod
-  inherited ENABLE=0 from the dummy, which is why it got a notification but no
-  encyclopedia listing. ENABLE=0 does NOT block buying/using.
+  (id 90050) is **kept**; a new **Magnifying Glass** is **appended** with
+  **id 40156** (TYPE 16 battle item, USE_ABI 101 = Examine, **ENABLE=1**).
+  Two findings baked in here:
+  - **ID range picks the journal subsection.** The encyclopedia buckets by item-id
+    range: 40xxx = the 55 "Consumables". The dummy's id (90xxx = key items) is not
+    a displayed bucket, so a 90xxx item counts at the top level (notification) but
+    never shows in a subsection. A **40xxx id** puts it in Consumables. `40156` is
+    the next free id after the last vanilla journal consumable (40155).
+  - **ENABLE must be 1** or the item is filtered out of the subsection listing
+    (all vanilla journal items are ENABLE=1). ENABLE=0 does NOT block buying/using.
+  Both ItemTable and DetailInfoItemTable are **sorted by id and keyed by id**
+  (DetailInfo has an `itID` field), so append + write re-sorts them correctly — no
+  positional alignment needed, but the detail row's `itID` MUST equal the item id.
 - `Paramater/DetailInfoItemTable.btb` — 597 → 598, MG name/description appended
-  at rec 597 (parallel index).
-- `Colony/PlantParameter.btb` — colony/Adventurer shop slot (rec 8) now sells
-  id **90051** (the appended Magnifying Glass).
+  with `itID=40156`.
+- `Colony/PlantParameter.btb` — colony/Adventurer shop slot (rec 8) sells id **40156**.
 - `Paramater/DNoteItemTable.btb` — D's Journal item map, grown 314 → **315**
-  (appends `ID 90051 -> INDEX 314`) so the Magnifying Glass gets an encyclopedia
-  entry. Reconstructed from vanilla JSON (pure ints, no strings), verified.
+  (appends `ID 40156 -> INDEX 314`). Built from vanilla JSON (pure ints), verified.
 
 **Verify in-game (each observable tests a different thing):**
 1. **Game boots / loads a save without crashing** → a 598-row ItemTable loads at
@@ -57,15 +62,14 @@ Copy `full/Common_en/` over `Common_en/`. Overwrites the two above PLUS:
 2. **Adventurer / Trader Village (colony) shop** shows **Magnifying Glass (20 pg)**
    → the appended ItemTable row is loaded AND looked up by ID from the shop.
 3. Buy it; its **menu name/description** read "Magnifying Glass" / "Displays
-   various information about an enemy…" → the appended DetailInfoItemTable row is
-   indexed correctly (parallel to ItemTable).
+   various information about an enemy…" → the DetailInfoItemTable `itID=40156` row
+   is found by id.
 4. **Use it in battle** → triggers Examine (enemy HP/weaknesses) → the appended
    item is fully functional.
-5. **D's Journal / encyclopedia** → the Magnifying Glass now has an item note
-   (from the appended `DNoteItemTable` row + its `DetailInfoItemTable` text) →
-   appending to the journal map works. (Buyable + usable were already confirmed;
-   this step is the remaining unknown — the journal UI may have its own INDEX or
-   count expectations.)
+5. **D's Journal → Items → Consumables** → the Consumables total goes 55 → **56**
+   and the Magnifying Glass is listed → journal append + ID-range bucketing work.
+   (Earlier attempts got the top-level notification but no subsection entry, due
+   to the 90xxx id + ENABLE=0 — both fixed here.)
 - Any of these failing (esp. #1 a crash on load) → ItemTable append isn't safely
   honored; keep the dummy-repurpose approach for new items. Note which step fails.
 
