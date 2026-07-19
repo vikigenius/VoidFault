@@ -63,11 +63,13 @@ FUNCTION_NAMES = [
     "CharacterState$$GetAGI",              # RVA 0x63A800 - final agility (how STATUSUP feeds in)
     "CharacterState$$GetDOD",              # RVA 0x63CC70 - dodge/evasion (Evade % Up) -- CONFIRMED:
                                            # hardcodes Evade IDs 1222/1225/1227 x1.1/1.2/1.3.
-    # GetSTATUSUP_AGI turned out to be a trivial getter (return field 0xf0), so the
-    # "Speed % Up" (1522/1523/1528) logic is applied where that field is SET, not in
-    # the getter. SetParam computes params (has an isIgnoreSpecial flag); its body and
-    # the callers of the AGI status-up setter should reveal the hardcoded speed branches.
+    # GetSTATUSUP_AGI turned out to be a trivial getter (return field 0xf0), and its
+    # setter is likewise a folded one-liner Ghidra won't surface (CALLERS_OF NOT FOUND).
+    # So the "Speed % Up" (1522/1523/1528) logic must be in SetParam (computes params,
+    # has an isIgnoreSpecial flag) or applied inline in the action-speed getter the way
+    # GetDOD applies Evade % inline. Check both for the hardcoded 1522/1523/1528 branches.
     "CharacterState$$SetParam",            # computes/applies stat params incl. specials
+    "CharacterState$$GetACTSPD",           # RVA 0x63A720 - action speed (Speed % Up may apply here)
 
     # --- Round 7c: can we ADD rows to data tables? (item-mod question) ---
     # Item mods (MagnifyingGlass, BuyablePetalTokens) all assume "can't add new
@@ -90,10 +92,9 @@ FUNCTION_NAMES = [
 # damage -- confirms the array indexing / any solo-case guard in situ.
 CALLERS_OF = [
     "BtlCharaManager$$GetMagicSympathy",
-    # Callers of the AGI status-up SETTER reveal where "Speed % Up" (1522/1523/1528)
-    # gets baked into the stored status-up field. The getter at 0x544050 is just
-    # `return field_0xf0` (folded with a Unity getter), so we chase the setter.
-    "CharacterState$$SetSTATUSUP_AGI",
+    # (SetSTATUSUP_AGI CALLERS_OF removed: the setter is a folded one-liner Ghidra
+    #  doesn't surface as a named function -> TARGET NOT FOUND. Chase Speed % via
+    #  SetParam / GetACTSPD in FUNCTION_NAMES instead.)
 ]
 
 # Functions the label import named but Ghidra never turned into a function object
