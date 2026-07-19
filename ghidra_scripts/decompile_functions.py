@@ -57,6 +57,22 @@ FUNCTION_NAMES = [
     "CharacterState$$GetSTATUSUP_AGI",     # RVA 0x544050 - agility "status up" (Speed % Up?)
     "CharacterState$$GetAGI",              # RVA 0x63A800 - final agility (how STATUSUP feeds in)
     "CharacterState$$GetDOD",              # RVA 0x63CC70 - dodge/evasion (Evade % Up)
+
+    # --- Round 7c: can we ADD rows to data tables? (item-mod question) ---
+    # Item mods (MagnifyingGlass, BuyablePetalTokens) all assume "can't add new
+    # rows", so they repurpose a dummy item / replace a shop slot (destructive).
+    # But our baseline ItemTable dump had an APPENDED row ("Copilot's Edge"),
+    # suggesting a row was added -- so verify whether the game honors it.
+    # All BTBF tables load via the shared generic BTBdata.Builder<T>: if it reads
+    # dataNum from the file header and allocates that many records, appended rows
+    # load for ANY table for free (the only remaining risk is consumers that
+    # hardcode a count or index a fixed range).
+    "BTBdata$$Builder<ItemTable>",         # shared table loader - does it trust header dataNum?
+    # Town item shops are .spb (BTBF) files loaded here; shows whether the shop
+    # item count comes from the file (append-friendly) or a fixed expectation.
+    "ShopDataTable$$LoadShopImpl",         # loads TW_*_Item.spb etc.
+    # NOTE: Builder<T> is a shared generic body; if the <ItemTable> label doesn't
+    # resolve, decompile any BTBdata$$Builder<...> instantiation - same native code.
 ]
 
 # Callers of GetMagicSympathy show where the multiplier is applied to black-magic
