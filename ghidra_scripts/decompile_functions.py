@@ -60,10 +60,14 @@ FUNCTION_NAMES = [
     # GOAL: know whether the effect is ID-hardcoded (=> can't repurpose an ability's
     # effect via a pure data mod, only its name/doc/cost/icon; effect change needs
     # a code mod or a JobTable learn-slot swap to an already-working ability).
-    # GetSTATUSUP_AGI is resolved via BY_RVA below (label import knows the name but
-    # Ghidra didn't auto-create a function at its address -> NOT FOUND by name).
     "CharacterState$$GetAGI",              # RVA 0x63A800 - final agility (how STATUSUP feeds in)
-    "CharacterState$$GetDOD",              # RVA 0x63CC70 - dodge/evasion (Evade % Up)
+    "CharacterState$$GetDOD",              # RVA 0x63CC70 - dodge/evasion (Evade % Up) -- CONFIRMED:
+                                           # hardcodes Evade IDs 1222/1225/1227 x1.1/1.2/1.3.
+    # GetSTATUSUP_AGI turned out to be a trivial getter (return field 0xf0), so the
+    # "Speed % Up" (1522/1523/1528) logic is applied where that field is SET, not in
+    # the getter. SetParam computes params (has an isIgnoreSpecial flag); its body and
+    # the callers of the AGI status-up setter should reveal the hardcoded speed branches.
+    "CharacterState$$SetParam",            # computes/applies stat params incl. specials
 
     # --- Round 7c: can we ADD rows to data tables? (item-mod question) ---
     # Item mods (MagnifyingGlass, BuyablePetalTokens) all assume "can't add new
@@ -86,15 +90,18 @@ FUNCTION_NAMES = [
 # damage -- confirms the array indexing / any solo-case guard in situ.
 CALLERS_OF = [
     "BtlCharaManager$$GetMagicSympathy",
+    # Callers of the AGI status-up SETTER reveal where "Speed % Up" (1522/1523/1528)
+    # gets baked into the stored status-up field. The getter at 0x544050 is just
+    # `return field_0xf0` (folded with a Unity getter), so we chase the setter.
+    "CharacterState$$SetSTATUSUP_AGI",
 ]
 
 # Functions the label import named but Ghidra never turned into a function object
 # (they sit in code regions auto-analysis didn't fully carve up), so they come
 # back NOT FOUND by name. Resolve them by RVA (from dump.cs / script.json) and
 # create the function if one doesn't exist there. RVA is relative to the image
-# base; VA = imageBase + RVA.
+# base; VA = imageBase + RVA. (Empty now -- 0x544050 was just a trivial getter.)
 BY_RVA = [
-    ("CharacterState$$GetSTATUSUP_AGI", 0x544050),  # agility "status up" (Speed % Up?)
 ]
 
 OUTPUT_PATH = r"C:\Users\maste\Documents\Modding\BDFFHD\BDFFHD-dump\decompiled_output.txt"
