@@ -86,6 +86,18 @@ FUNCTION_NAMES = [
     "ShopDataTable$$LoadShopImpl",         # loads TW_*_Item.spb etc.
     # NOTE: Builder<T> is a shared generic body; if the <ItemTable> label doesn't
     # resolve, decompile any BTBdata$$Builder<...> instantiation - same native code.
+
+    # --- Round 8: D's Journal ("Picture Book") item categorization (item-mod q) ---
+    # Appending a DNoteItemTable row + ItemTable item (40xxx id, ENABLE=1) gives the
+    # game a "new entry" notification but the Consumables subsection count (55) never
+    # grows and the item never lists. So the journal category lists/counts are built
+    # in the UI, not from DNoteItemTable (each slot also has a hardcoded GAMEFLAG bit,
+    # NEW_DNOTE_ITEM_0000..END = 12800..13117). PictureBookItemCategory 16 = アイテム
+    # (consumables). Find out how the category list is built and what caps it at 55 -
+    # is it a fixed count, an INDEX range, or a per-category id/TYPE filter we can satisfy?
+    "UIRoot.DReportMenu.CompleteList$$UpdatePictureBookItemCategory",  # builds a category's list
+    "UIRoot.DReportMenu.CompleteList.<>c__DisplayClass11_0$$<UpdatePictureBookItemCategory>b__0",  # per-entry DNoteItemTable filter
+    "UIRoot.DReportMenu.<PictureBookCoroutine>d__61$$MoveNext",        # coroutine that populates the book
 ]
 
 # Callers of GetMagicSympathy show where the multiplier is applied to black-magic
