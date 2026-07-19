@@ -63,13 +63,13 @@ FUNCTION_NAMES = [
     "CharacterState$$GetAGI",              # RVA 0x63A800 - final agility (how STATUSUP feeds in)
     "CharacterState$$GetDOD",              # RVA 0x63CC70 - dodge/evasion (Evade % Up) -- CONFIRMED:
                                            # hardcodes Evade IDs 1222/1225/1227 x1.1/1.2/1.3.
-    # GetSTATUSUP_AGI turned out to be a trivial getter (return field 0xf0), and its
-    # setter is likewise a folded one-liner Ghidra won't surface (CALLERS_OF NOT FOUND).
-    # So the "Speed % Up" (1522/1523/1528) logic must be in SetParam (computes params,
-    # has an isIgnoreSpecial flag) or applied inline in the action-speed getter the way
-    # GetDOD applies Evade % inline. Check both for the hardcoded 1522/1523/1528 branches.
-    "CharacterState$$SetParam",            # computes/applies stat params incl. specials
-    "CharacterState$$GetACTSPD",           # RVA 0x63A720 - action speed (Speed % Up may apply here)
+    # CONFIRMED: "Speed % Up" (1522/1523/1528) is applied inline in GetACTSPD (action
+    # speed = GetAGI then x1.1/1.2/1.3 by hardcoded ability id), mirroring GetDOD's
+    # Evade handling. GetAGI has no support check; SetParam was NOT the spot (kept for
+    # provenance). Net: all stat-"% Up" passives are ID-hardcoded with baked percents
+    # in native code -> a data mod can't change their effect/magnitude.
+    "CharacterState$$SetParam",            # (miss) computes base stat params, no speed% here
+    "CharacterState$$GetACTSPD",           # RVA 0x63A720 - action speed: Speed % Up lives here
 
     # --- Round 7c: can we ADD rows to data tables? (item-mod question) ---
     # Item mods (MagnifyingGlass, BuyablePetalTokens) all assume "can't add new
