@@ -116,9 +116,13 @@ CALLERS_OF = [
 # create the function if one doesn't exist there. RVA is relative to the image
 # base; VA = imageBase + RVA. (Empty now -- 0x544050 was just a trivial getter.)
 BY_RVA = [
-    # DReportMenu picture-book item-category filter lambda (Round 8); mangled
-    # generic/lambda name won't resolve by-name, so resolve by RVA.
-    ("DReportMenu.<UpdatePictureBookItemCategory>b__0", 0x8F86B0),
+    # (Round 8 lambda 0x8F86B0 removed: it folded to <PictureBookCoroutine>b__1, the
+    #  wrong function -- another RVA/ICF miss. Didn't need it: UpdatePictureBookItemCategory's
+    #  body gave the answer. RESULT: the journal category list is built from DTableItemData
+    #  (DReportTable/DTableItemData.btb), fields index/pText/category, iterated by array
+    #  count. category 16 = consumables (55). DTableItemData.index is 1-based and links to
+    #  DNoteItemTable.INDEX (0-based) offset by 1. Appending a {index,pText,category=16} row
+    #  makes the item list -> journal IS data-moddable after all.)
 ]
 
 OUTPUT_PATH = r"C:\Users\maste\Documents\Modding\BDFFHD\BDFFHD-dump\decompiled_output.txt"

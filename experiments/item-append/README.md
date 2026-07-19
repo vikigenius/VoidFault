@@ -55,6 +55,13 @@ Copy `full/Common_en/` over `Common_en/`. Overwrites the two above PLUS:
 - `Colony/PlantParameter.btb` — colony/Adventurer shop slot (rec 8) sells id **40156**.
 - `Paramater/DNoteItemTable.btb` — D's Journal item map, grown 314 → **315**
   (appends `ID 40156 -> INDEX 314`). Built from vanilla JSON (pure ints), verified.
+- `DReportTable/DTableItemData.btb` — the ACTUAL journal category table (fields
+  `index`, `pText`, `category`); grown 314 → **315** appending
+  `{index: 315, category: 16 (consumables), pText: <flavor text>}`. Ghidra Round 8
+  (`UpdatePictureBookItemCategory`) showed the category lists/counts are built from
+  THIS table (iterated by array count), not DNoteItemTable — which is why earlier
+  attempts got a notification but no listing. `DTableItemData.index` (1-based)
+  links to `DNoteItemTable.INDEX` (0-based) offset by 1, so index 315 ↔ INDEX 314.
 
 **Verify in-game (each observable tests a different thing):**
 1. **Game boots / loads a save without crashing** → a 598-row ItemTable loads at
@@ -67,9 +74,8 @@ Copy `full/Common_en/` over `Common_en/`. Overwrites the two above PLUS:
 4. **Use it in battle** → triggers Examine (enemy HP/weaknesses) → the appended
    item is fully functional.
 5. **D's Journal → Items → Consumables** → the Consumables total goes 55 → **56**
-   and the Magnifying Glass is listed → journal append + ID-range bucketing work.
-   (Earlier attempts got the top-level notification but no subsection entry, due
-   to the 90xxx id + ENABLE=0 — both fixed here.)
+   and the Magnifying Glass is listed (as its flavor text, or "???" until obtained)
+   → the DTableItemData append is the piece that actually populates the subsection.
 - Any of these failing (esp. #1 a crash on load) → ItemTable append isn't safely
   honored; keep the dummy-repurpose approach for new items. Note which step fails.
 
