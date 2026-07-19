@@ -38,7 +38,11 @@ bottom.
 Copy `full/Common_en/` over `Common_en/`. Overwrites the two above PLUS:
 - `Paramater/ItemTable.btb` — 597 → **598** rows. Dummy "Key Item Dmmy 10"
   (rec 596, id 90050) is **kept**; a new **Magnifying Glass** is **appended**
-  (rec 597, **new id 90051**, TYPE 16 battle item, USE_ABI 101 = Examine).
+  (rec 597, **new id 90051**, TYPE 16 battle item, USE_ABI 101 = Examine,
+  **ENABLE=1**). NOTE: `ENABLE` must be 1 or the item is filtered out of the D's
+  Journal subsection (all 314 journal items are ENABLE=1); the original refmod
+  inherited ENABLE=0 from the dummy, which is why it got a notification but no
+  encyclopedia listing. ENABLE=0 does NOT block buying/using.
 - `Paramater/DetailInfoItemTable.btb` — 597 → 598, MG name/description appended
   at rec 597 (parallel index).
 - `Colony/PlantParameter.btb` — colony/Adventurer shop slot (rec 8) now sells
